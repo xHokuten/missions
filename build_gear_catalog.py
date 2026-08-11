@@ -14,6 +14,7 @@ LSB_BASE = "https://raw.githubusercontent.com/LandSandBoat/server/base/sql"
 OUTPUT = Path("static/gear_catalog.json")
 
 ITEM_MOD_STATS = {
+    28: "Magic Attack Bonus",
     29: "Magic Defense Bonus",
     48: "Weapon Skill Accuracy",
     288: "Double Attack",
@@ -115,6 +116,19 @@ def lsb_item_stats(item_mods_sql: str) -> dict[int, dict[str, int]]:
     return stats
 
 
+def lsb_item_latent_stats(item_latents_sql: str) -> dict[int, dict[str, int]]:
+    """Return searchable conditional modifiers, retaining their latent designation."""
+    stats = {}
+    for item_id, mod_id, value in re.findall(
+        r"INSERT INTO `item_latents` VALUES \((\d+),(\d+),(-?\d+),\d+,-?\d+\)",
+        item_latents_sql,
+    ):
+        stat = ITEM_MOD_STATS.get(int(mod_id))
+        if stat:
+            stats.setdefault(int(item_id), {})[stat] = int(value)
+    return stats
+
+
 def parse_level_scaling(description: str, minimum_level: int) -> dict[str, dict[str, int]]:
     """Extract explicit level-scaled stat ranges such as STR+2～5."""
     text = " ".join(
@@ -141,8 +155,10 @@ def parse_level_scaling(description: str, minimum_level: int) -> dict[str, dict[
 
 
 def build(items_lua: str, descriptions_lua: str, keys: dict[int, str],
-          item_mod_stats: dict[int, dict[str, int]] | None = None) -> dict:
+          item_mod_stats: dict[int, dict[str, int]] | None = None,
+          item_latent_stats: dict[int, dict[str, int]] | None = None) -> dict:
     item_mod_stats = item_mod_stats or {}
+    item_latent_stats = item_latent_stats or {}
     descriptions = {
         int(match.group(1)): lua_string(match.group(2), "en")
         for match in re.finditer(r"^\s*\[(\d+)\] = \{(.*)\},$", descriptions_lua, re.M)
@@ -167,6 +183,8 @@ def build(items_lua: str, descriptions_lua: str, keys: dict[int, str],
             description = description.replace(glyph, label)
         parsed_stats = parse_gear_stats(description)
         parsed_stats.update(item_mod_stats.get(item_id, {}))
+        latent_stats = item_latent_stats.get(item_id, {})
+        parsed_stats.update(latent_stats)
         rows.append({
             "item_id": item_id,
             "item_key": keys.get(item_id, ""),
@@ -180,6 +198,7 @@ def build(items_lua: str, descriptions_lua: str, keys: dict[int, str],
             "rare": bool(flags & 32768),
             "ex": bool(flags & 16384),
             "stats": parsed_stats,
+            "latent_stats": latent_stats,
             "level_scaling": parse_level_scaling(description, level),
         })
     rows.sort(key=lambda item: (item["level"], item["name"].casefold(), item["item_id"]))
@@ -195,11 +214,13 @@ def build(items_lua: str, descriptions_lua: str, keys: dict[int, str],
 
 def main() -> None:
     item_mods_sql = fetch_text(f"{LSB_BASE}/item_mods.sql")
+    item_latents_sql = fetch_text(f"{LSB_BASE}/item_latents.sql")
     payload = build(
         fetch_text(ITEMS_SOURCE),
         fetch_text(DESCRIPTIONS_SOURCE),
         lsb_keys(fetch_text(f"{LSB_BASE}/item_equipment.sql"), fetch_text(f"{LSB_BASE}/item_weapon.sql")),
         lsb_item_stats(item_mods_sql),
+        lsb_item_latent_stats(item_latents_sql),
     )
     OUTPUT.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {len(payload['rows'])} level-75/ToAU equipment records to {OUTPUT}")

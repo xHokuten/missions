@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 import missions
-from build_gear_catalog import build as build_catalog, lsb_item_stats, parse_level_scaling
+from build_gear_catalog import (
+    build as build_catalog,
+    lsb_item_latent_stats,
+    lsb_item_stats,
+    parse_level_scaling,
+)
 from missions import create_app, normalize_horizon_item, parse_gear_stats
 
 
@@ -69,6 +74,10 @@ def test_parse_gear_stats_supports_quoted_combat_stats():
     }
 
 
+def test_parse_gear_stats_supports_abbreviated_magic_attack_bonus():
+    assert parse_gear_stats('"Magic Atk. Bonus"+7') == {"Magic Attack Bonus": 7}
+
+
 def test_lsb_item_stats_supplies_hidden_numeric_effect_values():
     stats = lsb_item_stats(
         "INSERT INTO `item_mods` VALUES (14813,288,5);\n"
@@ -84,6 +93,17 @@ def test_lsb_item_stats_supplies_hidden_numeric_effect_values():
         "Cure Potency": 10,
         "Weapon Skill Accuracy": 7,
     }
+
+
+def test_lsb_magic_attack_bonus_and_latents_are_searchable():
+    direct = lsb_item_stats("INSERT INTO `item_mods` VALUES (14808,28,7);")
+    latent = lsb_item_latent_stats(
+        "INSERT INTO `item_latents` VALUES (13289,28,10,2,76);\n"
+        "INSERT INTO `item_latents` VALUES (13145,28,8,4,51);"
+    )
+    assert direct[14808] == {"Magic Attack Bonus": 7}
+    assert latent[13289] == {"Magic Attack Bonus": 10}
+    assert latent[13145] == {"Magic Attack Bonus": 8}
 
 
 def test_parse_level_scaling_handles_promathia_rings():
