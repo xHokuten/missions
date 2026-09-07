@@ -190,6 +190,12 @@
   tableDkpPopover.className = "table-dkp-breakdown-popover";
   tableDkpPopover.setAttribute("role", "tooltip");
   document.body.appendChild(tableDkpPopover);
+  let pinnedDkpTrigger = null;
+  const closeTableDkpBreakdown = () => {
+    pinnedDkpTrigger?.setAttribute("aria-expanded", "false");
+    pinnedDkpTrigger = null;
+    tableDkpPopover.classList.remove("visible", "pinned");
+  };
   const showTableDkpBreakdown = trigger => {
     const member = (window.ENDGAME_MEMBER_DETAILS || {})[trigger.dataset.dkpMember];
     if (!member) return;
@@ -204,21 +210,44 @@
     const width = tableDkpPopover.offsetWidth;
     const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12));
     tableDkpPopover.style.left = `${left}px`;
-    tableDkpPopover.style.top = `${Math.min(rect.bottom + 8, window.innerHeight - tableDkpPopover.offsetHeight - 12)}px`;
+    tableDkpPopover.style.top = `${Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - tableDkpPopover.offsetHeight - 12))}px`;
   };
   document.addEventListener("mouseover", event => {
     const trigger = event.target.closest(".table-dkp-breakdown-trigger");
-    if (trigger) showTableDkpBreakdown(trigger);
+    if (trigger && (!pinnedDkpTrigger || pinnedDkpTrigger === trigger)) showTableDkpBreakdown(trigger);
   });
   document.addEventListener("mouseout", event => {
+    if (pinnedDkpTrigger || tableDkpPopover.contains(event.relatedTarget)) return;
     if (event.target.closest(".table-dkp-breakdown-trigger")) tableDkpPopover.classList.remove("visible");
   });
   document.addEventListener("focusin", event => {
     const trigger = event.target.closest(".table-dkp-breakdown-trigger");
-    if (trigger) showTableDkpBreakdown(trigger);
+    if (trigger && (!pinnedDkpTrigger || pinnedDkpTrigger === trigger)) showTableDkpBreakdown(trigger);
   });
   document.addEventListener("focusout", event => {
-    if (event.target.closest(".table-dkp-breakdown-trigger")) tableDkpPopover.classList.remove("visible");
+    if (!pinnedDkpTrigger && event.target.closest(".table-dkp-breakdown-trigger")) tableDkpPopover.classList.remove("visible");
+  });
+  document.addEventListener("click", event => {
+    const trigger = event.target.closest(".table-dkp-breakdown-trigger");
+    if (trigger) {
+      event.stopPropagation();
+      if (pinnedDkpTrigger === trigger) {
+        closeTableDkpBreakdown();
+      } else {
+        closeTableDkpBreakdown();
+        pinnedDkpTrigger = trigger;
+        trigger.setAttribute("aria-expanded", "true");
+        showTableDkpBreakdown(trigger);
+        tableDkpPopover.classList.add("pinned");
+      }
+      return;
+    }
+    if (!tableDkpPopover.contains(event.target)) closeTableDkpBreakdown();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && pinnedDkpTrigger) {
+      closeTableDkpBreakdown();
+    }
   });
   if (window.ENDGAME_IS_ADMIN) {
     const dynamisDirectory = document.querySelector(".dynamis-member-directory");
