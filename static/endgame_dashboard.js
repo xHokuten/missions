@@ -300,14 +300,15 @@
     bankNewStatus.closest("label")?.setAttribute("hidden", "");
   }
   const bankAddHolder = bankSource?.form?.querySelector("select[name='holder_member_id']");
+  const bankPurchaserMembers = [...(window.ENDGAME_MEMBERS || [])].sort((left, right) => String(left.name).localeCompare(String(right.name)));
   if (bankAddHolder && !bankSource.form?.querySelector("select[name='purchaser_member_id']")) {
     const purchaserLabel = document.createElement("label");
-    purchaserLabel.textContent = "Purchased by";
+    purchaserLabel.textContent = "Purchased by / for";
     const purchaser = document.createElement("select");
     purchaser.name = "purchaser_member_id";
-    purchaser.setAttribute("aria-label", "Officer who paid for the item");
+    purchaser.setAttribute("aria-label", "Officer or member the item was purchased by or for");
     purchaser.add(new Option("Same as held by", ""));
-    [...bankAddHolder.options].filter(option => option.value).forEach(option => purchaser.add(new Option(option.textContent, option.value)));
+    bankPurchaserMembers.forEach(member => purchaser.add(new Option(member.name, member.id)));
     purchaserLabel.append(purchaser);
     bankAddHolder.closest("label")?.after(purchaserLabel);
   }
@@ -370,9 +371,11 @@
     purchase.value = row.dataset.purchase || "0";
     purchase.placeholder = ["Merc Sell", "Mercenary"].includes(source.value) ? "Gil received" : "Purchase gil";
     purchase.setAttribute("aria-label", ["Merc Sell", "Mercenary"].includes(source.value) ? "Gil received" : "Purchase gil");
-    const purchaser = form.elements.holder_member_id.cloneNode(true);
+    const purchaser = document.createElement("select");
+    purchaser.add(new Option("Same as held by", ""));
+    bankPurchaserMembers.forEach(member => purchaser.add(new Option(member.name, member.id)));
     purchaser.name = "purchaser_member_id";
-    purchaser.setAttribute("aria-label", "Purchased by");
+    purchaser.setAttribute("aria-label", "Purchased by or for member");
     const statusHidden = document.createElement("input");
     statusHidden.type = "hidden";
     statusHidden.name = "status";
@@ -437,7 +440,7 @@
     holderLabel.append(form.elements.holder_member_id);
     const purchaserLabel = document.createElement("label");
     purchaserLabel.className = "bank-inline-field-label";
-    purchaserLabel.textContent = "Purchased by";
+    purchaserLabel.textContent = "Purchased by / for";
     purchaser.setAttribute("form", form.id);
     purchaserLabel.append(purchaser);
     addInlineEditor(row.cells[2], [holderLabel, purchaserLabel]);
