@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS alliance_events (
     notes TEXT NOT NULL DEFAULT '',
     share_token TEXT NOT NULL DEFAULT '',
     share_enabled INTEGER NOT NULL DEFAULT 0 CHECK(share_enabled IN (0,1)),
+    allow_second_alliance_duplicates INTEGER NOT NULL DEFAULT 0 CHECK(allow_second_alliance_duplicates IN (0,1)),
     version INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -130,7 +131,6 @@ CREATE TABLE IF NOT EXISTS alliance_slots (
     updated_by INTEGER,
     updated_at TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (event_id, party_number, slot_number),
-    UNIQUE (event_id, member_id),
     FOREIGN KEY (event_id) REFERENCES alliance_events(id) ON DELETE CASCADE,
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 );

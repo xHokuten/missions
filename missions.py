@@ -1630,6 +1630,7 @@ def create_app(test_config=None):
         for column, definition in (
             ("share_token", "TEXT NOT NULL DEFAULT ''"),
             ("share_enabled", "INTEGER NOT NULL DEFAULT 0"),
+            ("allow_second_alliance_duplicates", "INTEGER NOT NULL DEFAULT 0"),
             ("version", "INTEGER NOT NULL DEFAULT 1"),
         ):
             if column not in alliance_columns:
@@ -1652,7 +1653,6 @@ def create_app(test_config=None):
                        custom_name TEXT NOT NULL DEFAULT '',
                        job TEXT NOT NULL,
                        PRIMARY KEY (event_id, party_number, slot_number),
-                       UNIQUE (event_id, member_id),
                        FOREIGN KEY (event_id) REFERENCES alliance_events(id) ON DELETE CASCADE,
                        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
                    );
@@ -1683,7 +1683,32 @@ def create_app(test_config=None):
                        updated_by INTEGER,
                        updated_at TEXT NOT NULL DEFAULT '',
                        PRIMARY KEY (event_id, party_number, slot_number),
-                       UNIQUE (event_id, member_id),
+                       FOREIGN KEY (event_id) REFERENCES alliance_events(id) ON DELETE CASCADE,
+                       FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+                       FOREIGN KEY (updated_by) REFERENCES members(id) ON DELETE SET NULL
+                   );
+                   INSERT INTO alliance_slots
+                       (event_id,party_number,slot_number,member_id,custom_name,job,updated_by,updated_at)
+                   SELECT event_id,party_number,slot_number,member_id,custom_name,job,updated_by,updated_at
+                   FROM alliance_slots_legacy;
+                   DROP TABLE alliance_slots_legacy;"""
+            )
+        slot_definition = get_db().execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='alliance_slots'"
+        ).fetchone()["sql"] or ""
+        if "UNIQUE (event_id, member_id)" in slot_definition:
+            get_db().executescript(
+                """ALTER TABLE alliance_slots RENAME TO alliance_slots_legacy;
+                   CREATE TABLE alliance_slots (
+                       event_id INTEGER NOT NULL,
+                       party_number INTEGER NOT NULL CHECK(party_number BETWEEN 1 AND 6),
+                       slot_number INTEGER NOT NULL CHECK(slot_number BETWEEN 1 AND 6),
+                       member_id INTEGER,
+                       custom_name TEXT NOT NULL DEFAULT '',
+                       job TEXT NOT NULL,
+                       updated_by INTEGER,
+                       updated_at TEXT NOT NULL DEFAULT '',
+                       PRIMARY KEY (event_id, party_number, slot_number),
                        FOREIGN KEY (event_id) REFERENCES alliance_events(id) ON DELETE CASCADE,
                        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
                        FOREIGN KEY (updated_by) REFERENCES members(id) ON DELETE SET NULL
@@ -2241,6 +2266,7 @@ def create_app(test_config=None):
         if event_at_value and (not event_at or event_at.minute % 15):
             abort(400, description="Choose an event time in a 15-minute interval.")
         notes = request.form.get("notes", "").strip()[:1000]
+        allow_duplicates = request.form.get("allow_second_alliance_duplicates") == "1"
         db = get_db()
         guild_event_value = request.form.get("guild_event_id", "").strip()
         guild_event_id = None
@@ -2267,9 +2293,11 @@ def create_app(test_config=None):
                 abort(404)
             updated = db.execute(
                 """UPDATE alliance_events SET name=?,event_at=?,notes=?,guild_event_id=?,
+                          allow_second_alliance_duplicates=?,
                           version=version+1,updated_at=CURRENT_TIMESTAMP
                    WHERE id=? AND version=?""",
                 (name, event_at.isoformat(timespec="minutes") if event_at else None, notes, guild_event_id,
+                 int(allow_duplicates),
                  event_id, int(event_version)),
             )
             if updated.rowcount != 1:
@@ -2281,15 +2309,18 @@ def create_app(test_config=None):
             event_id = int(event_id)
         else:
             event_id = db.execute(
-                "INSERT INTO alliance_events(owner_member_id,guild_event_id,name,event_at,notes) VALUES(?,?,?,?,?)",
-                (owner["id"], guild_event_id, name, event_at.isoformat(timespec="minutes") if event_at else None, notes),
+                """INSERT INTO alliance_events
+                   (owner_member_id,guild_event_id,name,event_at,notes,allow_second_alliance_duplicates)
+                   VALUES(?,?,?,?,?,?)""",
+                (owner["id"], guild_event_id, name, event_at.isoformat(timespec="minutes") if event_at else None,
+                 notes, int(allow_duplicates)),
             ).lastrowid
 
         roster_jobs = {
             (row["member_id"], row["job"]): row["level"]
             for row in db.execute("SELECT member_id,job,level FROM member_jobs")
         }
-        selected_members = set()
+        selected_members = {}
         slots = []
         for party_number in range(1, 7):
             for slot_number in range(1, 7):
@@ -2308,9 +2339,11 @@ def create_app(test_config=None):
                 member_id = int(member_value)
                 if (member_id, job) not in roster_jobs:
                     abort(400, description="The selected member does not have that job in the roster.")
-                if member_id in selected_members:
-                    abort(400, description="A character can only occupy one alliance slot.")
-                selected_members.add(member_id)
+                alliance_number = 1 if party_number <= 3 else 2
+                prior_alliances = selected_members.setdefault(member_id, set())
+                if prior_alliances and (not allow_duplicates or alliance_number in prior_alliances):
+                    abort(400, description="A character can only occupy one slot in each alliance.")
+                prior_alliances.add(alliance_number)
                 slots.append((event_id, party_number, slot_number, member_id, "", job, owner["id"]))
         try:
             db.execute("DELETE FROM alliance_slots WHERE event_id=?", (event_id,))
@@ -2398,10 +2431,11 @@ def create_app(test_config=None):
         if not source:
             abort(404)
         event_id = db.execute(
-            """INSERT INTO alliance_events(owner_member_id,guild_event_id,name,event_at,notes)
-               VALUES(?,?,?,?,?)""",
+            """INSERT INTO alliance_events
+               (owner_member_id,guild_event_id,name,event_at,notes,allow_second_alliance_duplicates)
+               VALUES(?,?,?,?,?,?)""",
             (owner["id"], source["guild_event_id"], f"Copy of {source['name']}"[:80],
-             source["event_at"], source["notes"]),
+             source["event_at"], source["notes"], source["allow_second_alliance_duplicates"]),
         ).lastrowid
         db.execute(
             """INSERT INTO alliance_slots
@@ -2418,7 +2452,10 @@ def create_app(test_config=None):
         return redirect(url_for("alliance_builder", event=event_id))
 
     def alliance_live_payload(db, event_id):
-        event = db.execute("SELECT version FROM alliance_events WHERE id=?", (event_id,)).fetchone()
+        event = db.execute(
+            "SELECT version,allow_second_alliance_duplicates FROM alliance_events WHERE id=?",
+            (event_id,),
+        ).fetchone()
         slots = [dict(row) for row in db.execute(
             """SELECT s.party_number,s.slot_number,s.member_id,s.custom_name,s.job,
                       s.updated_by,s.updated_at,COALESCE(m.name,'') updated_by_name
@@ -2431,7 +2468,8 @@ def create_app(test_config=None):
                WHERE p.event_id=? AND p.last_seen>=datetime('now','-15 seconds')
                ORDER BY m.name COLLATE NOCASE""", (event_id,),
         ).fetchall()]
-        return {"version": event["version"], "slots": slots, "active_editors": active}
+        return {"version": event["version"], "slots": slots, "active_editors": active,
+                "allow_second_alliance_duplicates": bool(event["allow_second_alliance_duplicates"])}
 
     @app.get("/alliance-builder/shared/<share_token>/live")
     @editor_required
@@ -2459,7 +2497,8 @@ def create_app(test_config=None):
         actor = require_member_identity()
         db = get_db()
         event = db.execute(
-            "SELECT id,version FROM alliance_events WHERE share_token=? AND share_enabled=1",
+            """SELECT id,version,allow_second_alliance_duplicates FROM alliance_events
+               WHERE share_token=? AND share_enabled=1""",
             (share_token,),
         ).fetchone()
         if not event:
@@ -2473,6 +2512,10 @@ def create_app(test_config=None):
         payload = request.get_json(silent=True) or {}
         expected_version = payload.get("version")
         submitted = payload.get("slots")
+        allow_duplicates = payload.get(
+            "allow_second_alliance_duplicates",
+            bool(event["allow_second_alliance_duplicates"]),
+        ) is True
         if not isinstance(expected_version, int) or not isinstance(submitted, list) or len(submitted) > 36:
             abort(400, description="Invalid collaborative alliance update.")
         roster_jobs = {
@@ -2481,7 +2524,7 @@ def create_app(test_config=None):
             )
         }
         desired = {}
-        selected_members = set()
+        selected_members = {}
         for item in submitted:
             if not isinstance(item, dict):
                 abort(400, description="Invalid alliance slot.")
@@ -2500,9 +2543,13 @@ def create_app(test_config=None):
                 if not member_value.isdigit():
                     abort(400, description="Invalid roster member.")
                 member_id = int(member_value)
-                if (member_id, job) not in roster_jobs or member_id in selected_members:
+                alliance_number = 1 if party <= 3 else 2
+                prior_alliances = selected_members.setdefault(member_id, set())
+                if ((member_id, job) not in roster_jobs or
+                        (prior_alliances and
+                         (not allow_duplicates or alliance_number in prior_alliances))):
                     abort(400, description="Invalid or duplicate roster assignment.")
-                selected_members.add(member_id)
+                prior_alliances.add(alliance_number)
                 value = (member_id, "", job)
             if (party, slot) in desired:
                 abort(400, description="Duplicate alliance position.")
@@ -2517,11 +2564,14 @@ def create_app(test_config=None):
         }
         changed = {position for position in set(current) | set(desired)
                    if current.get(position) != desired.get(position)}
-        if not changed:
+        setting_changed = allow_duplicates != bool(event["allow_second_alliance_duplicates"])
+        if not changed and not setting_changed:
             return jsonify(alliance_live_payload(db, event["id"]))
         updated = db.execute(
-            """UPDATE alliance_events SET version=version+1,updated_at=CURRENT_TIMESTAMP
-               WHERE id=? AND version=?""", (event["id"], expected_version),
+            """UPDATE alliance_events SET version=version+1,
+                      allow_second_alliance_duplicates=?,updated_at=CURRENT_TIMESTAMP
+               WHERE id=? AND version=?""",
+            (int(allow_duplicates), event["id"], expected_version),
         )
         if updated.rowcount != 1:
             db.rollback()
