@@ -54,7 +54,9 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=62" in response.data
+    assert b"endgame_dashboard.js?v=63" in response.data
+    assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
+    assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"setInterval(loadAuctions, 5000)" in client.get("/static/endgame_dashboard.js").data
     assert b"setInterval(refresh, 5000)" in client.get("/static/header_nav.js").data
     assert response.data.count(b"data-endgame-view=") == 4
@@ -548,6 +550,10 @@ def test_past_test_events_are_removed_and_only_archived_sky_is_endgame(tmp_path)
     assert "Community ENM" not in history_names
     assert "Chains of Promathia 4-3" not in history_names
     assert "Sky Operations" in history_names
+    earned_names = {
+        event["name"] for member in member_details.values() for event in member["earned_events"]
+    }
+    assert "Sky Operations" in earned_names
     for date in (b'2026-08-06', b'2026-08-13'):
         sky = page.split(date, 1)[1][:1500]
         assert b"Sky Operations" in sky

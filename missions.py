@@ -3105,6 +3105,7 @@ def create_app(test_config=None):
                 continue
             event_history = []
             loot_history = []
+            earned_history = []
             for event in guild_events:
                 if event["event_kind"] != "Endgame":
                     continue
@@ -3124,6 +3125,18 @@ def create_app(test_config=None):
                     "signed_up": signed_up, "main_job": event_main,
                     "secondary_job": event_secondary,
                 })
+                earns_baseline_dkp = event["start_at"] in (
+                    "2026-08-06T20:00", "2026-08-13T20:00"
+                )
+                earns_current_dkp = (
+                    event["status"] == "Completed" and event["start_at"] > "2026-08-13T23:59"
+                )
+                if attended and (earns_baseline_dkp or earns_current_dkp):
+                    earned_history.append({
+                        "id": event["id"], "name": event["name"],
+                        "date": event["start_at"][:10],
+                        "dkp": 3 if earns_baseline_dkp else int(round(float(event["dkp_value"]))),
+                    })
                 for award in event["loot"]:
                     if award["player"].casefold() == member["name"].casefold():
                         loot_history.append({
@@ -3131,6 +3144,12 @@ def create_app(test_config=None):
                             "event_date": event["start_at"][:10],
                             "main_job": event_main, "secondary_job": event_secondary,
                         })
+            attendance_adjustment = int(round(attendance_adjustments.get(member["id"], 0)))
+            if attendance_adjustment:
+                earned_history.append({
+                    "id": None, "name": "Attendance adjustment", "date": "—",
+                    "dkp": attendance_adjustment,
+                })
             member_details[str(member["id"])] = {
                 "id": member["id"], "name": member["name"],
                 "main_job": member["main_job"], "secondary_job": member["secondary_job"],
@@ -3142,6 +3161,7 @@ def create_app(test_config=None):
                 "lifetime_earned": member["lifetime_earned"],
                 "last_event": member["last_event"],
                 "events": event_history, "loot": loot_history,
+                "earned_events": earned_history,
             }
         bank_items = [dict(row) for row in get_db().execute(
             """SELECT b.*,e.name event_name,e.start_at event_start,h.name holder_name,p.name purchaser_name,
