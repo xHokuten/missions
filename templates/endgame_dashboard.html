@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Endgame Operations · Hokuten Knights{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='endgame_dashboard.css',v=36) }}">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static',filename='endgame_dashboard.css',v=37) }}">{% endblock %}
 {% block content %}
 <section class="endgame-shell">
   <header class="endgame-hero">
@@ -165,5 +165,5 @@
 <script>window.ENDGAME_ROSTER={{ roster|tojson }};window.ENDGAME_MEMBERS={{ calendar_members|tojson }};window.ENDGAME_LOOT={{ loot|tojson }};window.ENDGAME_EVENTS={{ guild_events|tojson }};window.ENDGAME_PRIORITY_ITEMS={{ priority_items|tojson }};window.ENDGAME_LOOT_CATALOG={{ loot_catalog|tojson }};window.ENDGAME_JOBS={{ jobs|tojson }};window.ENDGAME_IS_ADMIN={{ can_create_guild_events()|tojson }};window.ENDGAME_ACTOR={{ current_member_name()|tojson }};window.ENDGAME_IS_OWNER={{ (current_member_name()|lower == 'imaven')|tojson }};window.ENDGAME_CSRF={{ csrf_token()|tojson }};window.ENDGAME_SERVER_AUDIT={{ (persistent_audit if current_member_name()|lower == 'imaven' else [])|tojson }};window.POP_ITEMS={{ pop_items|tojson }};window.POP_TARGETS={{ pop_targets|tojson }};</script>
 <script>window.ENDGAME_MEMBER_DETAILS={{ member_details|tojson }};</script>
 <script>window.ENDGAME_DYNAMIS_CATALOG={{ dynamis_catalog|tojson }};</script>
-<script src="{{ url_for('static',filename='quarter_hour_picker.js',v=3) }}"></script><script src="{{ url_for('static',filename='endgame_dashboard.js',v=64) }}"></script><script src="{{ url_for('static',filename='endgame_pops.js',v=1) }}"></script>
+<script src="{{ url_for('static',filename='quarter_hour_picker.js',v=3) }}"></script><script src="{{ url_for('static',filename='endgame_dashboard.js',v=65) }}"></script><script src="{{ url_for('static',filename='endgame_pops.js',v=1) }}"></script>
 {% endblock %}
