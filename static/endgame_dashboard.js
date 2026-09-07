@@ -178,6 +178,48 @@
   const adminAudit = [...(window.ENDGAME_SERVER_AUDIT || []), ...JSON.parse(localStorage.getItem(adminAuditKey) || "[]")];
   let auditSort = {key: "at", direction: -1};
   const safeText = value => String(value ?? "").replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[character]));
+  const memberDetailsByName = new Map(Object.values(window.ENDGAME_MEMBER_DETAILS || {}).map(member => [String(member.name || "").toLowerCase(), member]));
+  document.querySelectorAll("#endgame-roster-body tr").forEach(row => {
+    const member = memberDetailsByName.get(row.dataset.name);
+    if (!member) return;
+    const cells = row.children;
+    if (cells[3]) cells[3].innerHTML = `<button class="table-dkp-breakdown-trigger" type="button" data-dkp-member="${member.id}" data-dkp-kind="spent" aria-label="Show ${safeText(member.name)} total spent details">${Number(member.total_spent || 0)}</button>`;
+    if (cells[4]) cells[4].innerHTML = `<button class="table-dkp-breakdown-trigger" type="button" data-dkp-member="${member.id}" data-dkp-kind="earned" aria-label="Show ${safeText(member.name)} lifetime earned details">${Number(member.lifetime_earned || 0)}</button>`;
+  });
+  const tableDkpPopover = document.createElement("div");
+  tableDkpPopover.className = "table-dkp-breakdown-popover";
+  tableDkpPopover.setAttribute("role", "tooltip");
+  document.body.appendChild(tableDkpPopover);
+  const showTableDkpBreakdown = trigger => {
+    const member = (window.ENDGAME_MEMBER_DETAILS || {})[trigger.dataset.dkpMember];
+    if (!member) return;
+    const spent = trigger.dataset.dkpKind === "spent";
+    const records = spent ? member.loot : (member.earned_events || []);
+    const rows = records.map(row => spent
+      ? `<tr><td><b>${safeText(row.item)}</b><small>${safeText(row.event_name)}</small></td><td>${Number(row.dkp_cost || 0)} DKP</td></tr>`
+      : `<tr><td>${safeText(row.date)}<small>${safeText(row.name)}</small></td><td>${Number(row.dkp || 0)} DKP</td></tr>`).join("");
+    tableDkpPopover.innerHTML = `<strong>${spent ? "Items purchased" : "Events attended"}</strong>${rows ? `<div><table><tbody>${rows}</tbody></table></div>` : `<p>${spent ? "No DKP purchases recorded." : "No earned DKP recorded."}</p>`}`;
+    tableDkpPopover.classList.add("visible");
+    const rect = trigger.getBoundingClientRect();
+    const width = tableDkpPopover.offsetWidth;
+    const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12));
+    tableDkpPopover.style.left = `${left}px`;
+    tableDkpPopover.style.top = `${Math.min(rect.bottom + 8, window.innerHeight - tableDkpPopover.offsetHeight - 12)}px`;
+  };
+  document.addEventListener("mouseover", event => {
+    const trigger = event.target.closest(".table-dkp-breakdown-trigger");
+    if (trigger) showTableDkpBreakdown(trigger);
+  });
+  document.addEventListener("mouseout", event => {
+    if (event.target.closest(".table-dkp-breakdown-trigger")) tableDkpPopover.classList.remove("visible");
+  });
+  document.addEventListener("focusin", event => {
+    const trigger = event.target.closest(".table-dkp-breakdown-trigger");
+    if (trigger) showTableDkpBreakdown(trigger);
+  });
+  document.addEventListener("focusout", event => {
+    if (event.target.closest(".table-dkp-breakdown-trigger")) tableDkpPopover.classList.remove("visible");
+  });
   if (window.ENDGAME_IS_ADMIN) {
     const dynamisDirectory = document.querySelector(".dynamis-member-directory");
     const dynamisMembers = Object.values(window.ENDGAME_MEMBER_DETAILS || {})
