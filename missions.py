@@ -1534,7 +1534,9 @@ def create_app(test_config=None):
         # keep true event drops from carrying purchase-only accounting.
         get_db().execute(
             """UPDATE ls_bank_items SET acquisition_kind='Other',event_id=NULL
-               WHERE lower(item)='timeless hourglass' AND acquisition_kind<>'Other'"""
+               WHERE (lower(item) LIKE '%timeless%hourglass%'
+                      OR lower(item) LIKE '%timeless%hrglass%')
+                 AND (acquisition_kind<>'Other' OR event_id IS NOT NULL)"""
         )
         get_db().execute(
             """UPDATE ls_bank_items SET purchase_gil=0,purchaser_member_id=NULL
@@ -4881,7 +4883,7 @@ def create_app(test_config=None):
         except (TypeError, ValueError):
             quantity = 0
         purchase_gil = bank_gil_value(request.form.get("purchase_gil"))
-        if item.casefold() == "timeless hourglass":
+        if "timeless" in item.casefold() and ("hourglass" in item.casefold() or "hrglass" in item.casefold()):
             acquisition_kind, event_id = "Other", ""
         acquisition_kind = {
             "Purchase": "Auction House", "Pop Item": "Other",
@@ -5037,7 +5039,7 @@ def create_app(test_config=None):
         event_id = request.form.get("event_id", "").strip()
         raw_purchase_gil = request.form.get("purchase_gil")
         purchase_gil = entry["purchase_gil"] if raw_purchase_gil is None else bank_gil_value(raw_purchase_gil)
-        if entry["item"].casefold() == "timeless hourglass":
+        if "timeless" in entry["item"].casefold() and ("hourglass" in entry["item"].casefold() or "hrglass" in entry["item"].casefold()):
             acquisition_kind, event_id = "Other", ""
         acquisition_kind = {
             "Purchase": "Auction House", "Pop Item": "Other",
@@ -5148,7 +5150,7 @@ def create_app(test_config=None):
             event = get_db().execute("SELECT id FROM guild_events WHERE id=?", (event_id,)).fetchone() if event_id.isdigit() else None
             sale_gil = entry["sale_gil"] if entry and status == "Sold" and not str(raw_sale_gil).strip() else (0 if not str(raw_sale_gil).strip() else bank_gil_value(raw_sale_gil))
             purchase_gil = bank_gil_value(raw_purchase_gil)
-            if entry["item"].casefold() == "timeless hourglass":
+            if "timeless" in entry["item"].casefold() and ("hourglass" in entry["item"].casefold() or "hrglass" in entry["item"].casefold()):
                 acquisition_kind, event_id = "Other", ""
             acquisition_kind = {
                 "Purchase": "Auction House", "Pop Item": "Other",

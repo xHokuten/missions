@@ -54,7 +54,7 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=71" in response.data
+    assert b"endgame_dashboard.js?v=72" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
@@ -505,7 +505,10 @@ def test_ls_bank_gil_donation_records_member_and_receiving_officer(tmp_path):
     page = client.get("/endgame#bank").data
     assert b'data-bank-cash="250000"' in page
     assert b"GenerousMember" in page
-    assert b"Donated Gil" in client.get("/static/endgame_dashboard.js").data
+    dashboard_js = client.get("/static/endgame_dashboard.js").data
+    assert b"Donated Gil" in dashboard_js
+    assert b'const isPurchased = !/^event drop/' in dashboard_js
+    assert b'form.requestSubmit(inlineSave)' in dashboard_js
 
     member_held = client.post("/endgame/bank", data={
         "csrf_token": "token", "item": "Gil Donation", "acquisition_kind": "Donation",
@@ -513,6 +516,14 @@ def test_ls_bank_gil_donation_records_member_and_receiving_officer(tmp_path):
         "holder_member_id": str(donor_id), "purchaser_member_id": str(donor_id),
     })
     assert member_held.status_code == 302
+
+    # A donated item remains donation income, but is displayed in purchased
+    # inventory rather than in the event-drop bucket.
+    database = sqlite3.connect(app.config["DATABASE"])
+    assert database.execute(
+        "SELECT acquisition_kind,status FROM ls_bank_items WHERE purchase_gil=100"
+    ).fetchone() == ("Donation", "Held")
+    database.close()
 
 
 def test_past_endgame_events_show_most_recent_first(tmp_path):

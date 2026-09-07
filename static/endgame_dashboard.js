@@ -513,7 +513,7 @@
       saveKind.className = "bank-inline-save-control";
       saveKind.textContent = "Save";
       saveKind.setAttribute("form", form.id);
-      const isPurchased = !/^(event drop|donation)/.test(source.value || "");
+      const isPurchased = !/^event drop/.test(source.value || "");
       kind.value = isPurchased ? "purchased" : "dropped";
       const applyHeldKind = () => {
         const purchased = kind.value === "purchased";
@@ -537,7 +537,18 @@
           purchaseEditor.classList.add("open");
         }
       };
-      kind.addEventListener("change", applyHeldKind);
+      kind.addEventListener("change", () => {
+        applyHeldKind();
+        form.dataset.bankDirty = "true";
+        if (kind.value === "purchased" && !purchaser.value) {
+          purchaseEditor.classList.add("open");
+          purchaserLabel.parentElement?.classList.add("open");
+          purchaser.focus();
+          return;
+        }
+        form.dataset.bankDirty = "";
+        form.requestSubmit(inlineSave);
+      });
       if (badge) {
         badge.classList.add("bank-status-editable");
         badge.title = "Click to change between dropped and purchased";
@@ -719,7 +730,7 @@
             statusHidden.value = "Held";
             row.cells[5].querySelector("small")?.remove();
             const badge = row.querySelector(".bank-status");
-            if (badge) { badge.textContent = !/^(event drop|donation)/.test(source.value) ? "Held (Purchased)" : "Held (Dropped)"; badge.className = "bank-status held"; }
+            if (badge) { badge.textContent = !/^event drop/.test(source.value) ? "Held (Purchased)" : "Held (Dropped)"; badge.className = "bank-status held"; }
           }
           setLeadingText(row.cells[1], source.value);
           setLeadingText(row.cells[2], form.elements.holder_member_id.selectedOptions[0]?.textContent || "Unassigned");
@@ -825,7 +836,7 @@
         row.cells[4].innerHTML = `<span class="bank-market-value" data-bank-item="${safeText(item)}" data-bank-quantity="${safeText(quantity)}">Loading…</span>`;
       }
       if (row.dataset.status !== "held" && !heldPurchased) return;
-      const purchased = !/^(event drop|donation)/.test(row.dataset.source || "");
+      const purchased = !/^event drop/.test(row.dataset.source || "");
       const badge = row.querySelector(".bank-status");
       if (badge) {
         badge.textContent = purchased ? "Held (Purchased)" : "Held (Dropped)";
@@ -853,7 +864,7 @@
         : (candidates.length ? Math.min(...candidates) : null);
       if (unit == null) { cell.textContent = "—"; cell.title = "No PSXI market value is currently available."; return; }
       const value = Number(unit) * Number(cell.dataset.bankQuantity || 1);
-      const purchased = !/^(event drop|donation)/.test(row?.dataset.source || "");
+      const purchased = !/^event drop/.test(row?.dataset.source || "");
       if (purchased) heldPurchasedValue += value;
       else heldDroppedValue += value;
       row.dataset.market = String(value);
@@ -879,7 +890,7 @@
     const rows = [...document.querySelectorAll("#ls-bank-body tr[data-bank-search]")].filter(row => {
     const source = row.dataset.source || "";
     if (kind === "cash") return row.dataset.status === "sold" || /^donation/.test(source) || !/^(event drop|donation)/.test(source);
-    const purchased = !/^(event drop|donation)/.test(source);
+    const purchased = !/^event drop/.test(source);
     return row.dataset.status === "held" && (kind === "purchased" ? purchased : !purchased);
   }).map(row => {
     const heldBy = row.querySelector("select[name='holder_member_id'] option:checked")?.textContent || row.cells[2]?.textContent.trim() || "Unassigned";
