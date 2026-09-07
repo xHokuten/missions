@@ -1530,6 +1530,16 @@ def create_app(test_config=None):
             )
             get_db().execute("DROP TABLE ls_bank_items_legacy")
             get_db().execute("CREATE INDEX IF NOT EXISTS idx_ls_bank_status ON ls_bank_items(status, acquired_at DESC)")
+        # Timeless Hourglasses are purchased inventory, not event drops.  Also
+        # keep true drops/donations from carrying purchase-only accounting.
+        get_db().execute(
+            """UPDATE ls_bank_items SET acquisition_kind='Other',event_id=NULL
+               WHERE lower(item)='timeless hourglass' AND acquisition_kind<>'Other'"""
+        )
+        get_db().execute(
+            """UPDATE ls_bank_items SET purchase_gil=0,purchaser_member_id=NULL
+               WHERE acquisition_kind IN ('Event Drop','Donation')"""
+        )
         get_db().execute(
             """UPDATE endgame_loot_awards AS award SET auction_id=(
                    SELECT auction.id FROM endgame_auction_items item
@@ -4847,14 +4857,20 @@ def create_app(test_config=None):
         except (TypeError, ValueError):
             quantity = 0
         purchase_gil = bank_gil_value(request.form.get("purchase_gil"))
+        if item.casefold() == "timeless hourglass":
+            acquisition_kind, event_id = "Other", ""
+        acquisition_kind = {
+            "Purchase": "Auction House", "Pop Item": "Other",
+            "Timeless Hourglass": "Other", "Manual": "Other", "Merc Sell": "Mercenary",
+        }.get(acquisition_kind, acquisition_kind)
+        if acquisition_kind in {"Event Drop", "Donation"}:
+            purchase_gil, purchaser_id = 0, ""
         event = get_db().execute("SELECT id FROM guild_events WHERE id=?", (event_id,)).fetchone() if event_id.isdigit() else None
         holder = get_db().execute("SELECT id,name FROM members WHERE id=?", (holder_id,)).fetchone() if holder_id.isdigit() else None
         purchaser = get_db().execute("SELECT id,name FROM members WHERE id=?", (purchaser_id,)).fetchone() if purchaser_id.isdigit() else None
         sale_gil = 0
-        if acquisition_kind in {"Merc Sell", "Mercenary"}:
+        if acquisition_kind == "Mercenary":
             status, sale_gil, purchase_gil = "Sold", purchase_gil, 0
-        elif acquisition_kind in {"Pop Item", "Timeless Hourglass"}:
-            status = "Purchased"
         if (not item or not 1 <= quantity <= 9999 or purchase_gil < 0
                 or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                 or status not in {"Held", "Purchased", "Sold"}
@@ -4888,6 +4904,14 @@ def create_app(test_config=None):
         event_id = request.form.get("event_id", "").strip()
         raw_purchase_gil = request.form.get("purchase_gil")
         purchase_gil = entry["purchase_gil"] if raw_purchase_gil is None else bank_gil_value(raw_purchase_gil)
+        if entry["item"].casefold() == "timeless hourglass":
+            acquisition_kind, event_id = "Other", ""
+        acquisition_kind = {
+            "Purchase": "Auction House", "Pop Item": "Other",
+            "Timeless Hourglass": "Other", "Manual": "Other", "Merc Sell": "Mercenary",
+        }.get(acquisition_kind, acquisition_kind)
+        if acquisition_kind in {"Event Drop", "Donation"}:
+            purchase_gil, purchaser_id = 0, ""
         raw_sale_gil = request.form.get("sale_gil")
         sale_gil = (entry["sale_gil"] if status == "Sold" and not str(raw_sale_gil or "").strip()
                     else (0 if not str(raw_sale_gil or "").strip() else bank_gil_value(raw_sale_gil)))
@@ -4897,10 +4921,8 @@ def create_app(test_config=None):
         holder = get_db().execute("SELECT id,name FROM members WHERE id=?", (holder_id,)).fetchone() if holder_id.isdigit() else None
         purchaser = get_db().execute("SELECT id,name FROM members WHERE id=?", (purchaser_id,)).fetchone() if purchaser_id.isdigit() else None
         event = get_db().execute("SELECT id FROM guild_events WHERE id=?", (event_id,)).fetchone() if event_id.isdigit() else None
-        if acquisition_kind in {"Merc Sell", "Mercenary"}:
+        if acquisition_kind == "Mercenary":
             status, sale_gil, purchase_gil = "Sold", purchase_gil, 0
-        elif acquisition_kind in {"Pop Item", "Timeless Hourglass"}:
-            status, sale_gil = "Purchased", 0
         if (status not in {"Held", "Purchased", "Sold"} or sale_gil < 0 or purchase_gil < 0 or (holder_id and not holder) or (purchaser_id and not purchaser)
                 or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                 or (acquisition_kind == "Mercenary" and sale_gil <= 0)
@@ -4988,14 +5010,21 @@ def create_app(test_config=None):
             event = get_db().execute("SELECT id FROM guild_events WHERE id=?", (event_id,)).fetchone() if event_id.isdigit() else None
             sale_gil = entry["sale_gil"] if entry and status == "Sold" and not str(raw_sale_gil).strip() else (0 if not str(raw_sale_gil).strip() else bank_gil_value(raw_sale_gil))
             purchase_gil = bank_gil_value(raw_purchase_gil)
+            if entry["item"].casefold() == "timeless hourglass":
+                acquisition_kind, event_id = "Other", ""
+            acquisition_kind = {
+                "Purchase": "Auction House", "Pop Item": "Other",
+                "Timeless Hourglass": "Other", "Manual": "Other", "Merc Sell": "Mercenary",
+            }.get(acquisition_kind, acquisition_kind)
+            if acquisition_kind in {"Event Drop", "Donation"}:
+                purchase_gil, purchaser_id = 0, ""
+                purchaser = None
             # A filled sale price is the quick bulk-sale action; a blank field
             # leaves the selected state intact.
             if status in {"Held", "Purchased"} and str(raw_sale_gil).strip() and sale_gil > 0:
                 status = "Sold"
-            if acquisition_kind in {"Merc Sell", "Mercenary"}:
+            if acquisition_kind == "Mercenary":
                 status, sale_gil, purchase_gil = "Sold", purchase_gil, 0
-            elif acquisition_kind in {"Pop Item", "Timeless Hourglass"}:
-                status, sale_gil = "Purchased", 0
             if (not entry or sale_gil < 0 or purchase_gil < 0 or status not in {"Held", "Purchased", "Sold"}
                     or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                     or (acquisition_kind == "Mercenary" and sale_gil <= 0)
