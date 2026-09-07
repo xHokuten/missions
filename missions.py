@@ -4843,6 +4843,18 @@ def create_app(test_config=None):
             return -1
         return value if 0 <= value <= 2_000_000_000 else -1
 
+    def ls_bank_officer_ids():
+        names = tuple(name.casefold() for name in DISCORD_ADMIN_CHARACTERS)
+        rows = get_db().execute(
+            "SELECT id FROM members WHERE discord_admin=1 OR lower(name) IN ({})".format(
+                ",".join("?" for _ in names)
+            ), names,
+        ).fetchall()
+        officer_ids = {row["id"] for row in rows}
+        if is_admin() and current_member_id():
+            officer_ids.add(current_member_id())
+        return officer_ids
+
     def bank_saved_response(message, **payload):
         """Keep in-place LS Bank controls from forcing a dashboard reload."""
         if request.accept_mimetypes.best == "application/json":
@@ -4884,7 +4896,9 @@ def create_app(test_config=None):
                 or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                 or status not in {"Held", "Purchased", "Sold"}
                 or (acquisition_kind == "Mercenary" and sale_gil <= 0)
-                or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)):
+                or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)
+                or (acquisition_kind not in {"Event Drop", "Donation"}
+                    and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
             abort(400, description="Complete the LS Bank item using valid values.")
         actor = require_member_identity()
         get_db().execute(
@@ -4979,7 +4993,9 @@ def create_app(test_config=None):
                 or (acquisition_kind == "Mercenary" and sale_gil <= 0)
                 or (event_id and not event)
                 or (status == "Sold" and sale_channel not in {"", "Auction House", "Bazaar"})
-                or (status != "Sold" and sale_channel)):
+                or (status != "Sold" and sale_channel)
+                or (acquisition_kind not in {"Event Drop", "Donation"}
+                    and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
             abort(400, description="Use a valid holder, sale status, and gil amount.")
         actor = require_member_identity()
         sale_gil = sale_gil if status == "Sold" else 0
@@ -5079,7 +5095,9 @@ def create_app(test_config=None):
             if (not entry or sale_gil < 0 or purchase_gil < 0 or status not in {"Held", "Purchased", "Sold"}
                     or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                     or (acquisition_kind == "Mercenary" and sale_gil <= 0)
-                    or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)):
+                    or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)
+                    or (acquisition_kind not in {"Event Drop", "Donation"}
+                        and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
                 abort(400, description="Use valid LS Bank values before saving all rows.")
             updates.append((event["id"] if event else None, acquisition_kind, purchase_gil, holder["id"] if holder else None, purchaser["id"] if purchaser else None, status, sale_gil if status == "Sold" else 0,
                             notes.strip()[:500], status, entry["id"], entry["item"], entry["quantity"]))

@@ -300,15 +300,16 @@
     bankNewStatus.closest("label")?.setAttribute("hidden", "");
   }
   const bankAddHolder = bankSource?.form?.querySelector("select[name='holder_member_id']");
-  const bankPurchaserMembers = [...(window.ENDGAME_MEMBERS || [])].sort((left, right) => String(left.name).localeCompare(String(right.name)));
+  const bankHolderMembers = [...(window.ENDGAME_MEMBERS || [])].sort((left, right) => String(left.name).localeCompare(String(right.name)));
+  const bankPurchaserOfficers = [...(window.ENDGAME_BANK_OFFICERS || [])].sort((left, right) => String(left.name).localeCompare(String(right.name)));
   if (bankAddHolder && !bankSource.form?.querySelector("select[name='purchaser_member_id']")) {
     const purchaserLabel = document.createElement("label");
-    purchaserLabel.textContent = "Purchased by / for";
+    purchaserLabel.textContent = "Purchased by";
     const purchaser = document.createElement("select");
     purchaser.name = "purchaser_member_id";
-    purchaser.setAttribute("aria-label", "Officer or member the item was purchased by or for");
+    purchaser.setAttribute("aria-label", "Officer who purchased the item");
     purchaser.add(new Option("Same as held by", ""));
-    bankPurchaserMembers.forEach(member => purchaser.add(new Option(member.name, member.id)));
+    bankPurchaserOfficers.forEach(member => purchaser.add(new Option(member.name, member.id)));
     purchaserLabel.append(purchaser);
     bankAddHolder.closest("label")?.after(purchaserLabel);
   }
@@ -351,6 +352,12 @@
   document.querySelectorAll(".ls-bank-row-editor").forEach(form => {
     const row = form.closest("tr");
     form.id ||= `ls-bank-editor-${form.action.match(/\/bank\/(\d+)\/update/)?.[1] || Math.random().toString(36).slice(2)}`;
+    const holderSelect = form.elements.holder_member_id;
+    const savedHolder = holderSelect?.value || "";
+    if (holderSelect) {
+      holderSelect.replaceChildren(new Option("Unassigned", ""), ...bankHolderMembers.map(member => new Option(member.name, member.id)));
+      holderSelect.value = savedHolder;
+    }
     const statusSelect = form.elements.status;
     const status = statusSelect?.value || "Held";
     const source = document.createElement("select");
@@ -373,9 +380,9 @@
     purchase.setAttribute("aria-label", ["Merc Sell", "Mercenary"].includes(source.value) ? "Gil received" : "Purchase gil");
     const purchaser = document.createElement("select");
     purchaser.add(new Option("Same as held by", ""));
-    bankPurchaserMembers.forEach(member => purchaser.add(new Option(member.name, member.id)));
+    bankPurchaserOfficers.forEach(member => purchaser.add(new Option(member.name, member.id)));
     purchaser.name = "purchaser_member_id";
-    purchaser.setAttribute("aria-label", "Purchased by or for member");
+    purchaser.setAttribute("aria-label", "Officer who purchased the item");
     const statusHidden = document.createElement("input");
     statusHidden.type = "hidden";
     statusHidden.name = "status";
@@ -440,7 +447,7 @@
     holderLabel.append(form.elements.holder_member_id);
     const purchaserLabel = document.createElement("label");
     purchaserLabel.className = "bank-inline-field-label";
-    purchaserLabel.textContent = "Purchased by / for";
+    purchaserLabel.textContent = "Purchased by";
     purchaser.setAttribute("form", form.id);
     purchaserLabel.append(purchaser);
     addInlineEditor(row.cells[2], [holderLabel, purchaserLabel]);
