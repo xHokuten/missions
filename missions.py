@@ -1531,14 +1531,14 @@ def create_app(test_config=None):
             get_db().execute("DROP TABLE ls_bank_items_legacy")
             get_db().execute("CREATE INDEX IF NOT EXISTS idx_ls_bank_status ON ls_bank_items(status, acquired_at DESC)")
         # Timeless Hourglasses are purchased inventory, not event drops.  Also
-        # keep true drops/donations from carrying purchase-only accounting.
+        # keep true event drops from carrying purchase-only accounting.
         get_db().execute(
             """UPDATE ls_bank_items SET acquisition_kind='Other',event_id=NULL
                WHERE lower(item)='timeless hourglass' AND acquisition_kind<>'Other'"""
         )
         get_db().execute(
             """UPDATE ls_bank_items SET purchase_gil=0,purchaser_member_id=NULL
-               WHERE acquisition_kind IN ('Event Drop','Donation')"""
+               WHERE acquisition_kind='Event Drop'"""
         )
         get_db().execute(
             """UPDATE endgame_loot_awards AS award SET auction_id=(
@@ -3199,15 +3199,18 @@ def create_app(test_config=None):
                LEFT JOIN members recorder ON recorder.id=t.recorded_by
                ORDER BY t.transferred_at DESC,t.id DESC LIMIT 250"""
         ).fetchall()]
-        bank_summary = get_db().execute(
+        bank_summary = dict(get_db().execute(
             """SELECT COALESCE(SUM(CASE WHEN acquisition_kind NOT IN ('Event Drop','Donation')
                                          THEN purchase_gil ELSE 0 END),0) purchases,
+                      COALESCE(SUM(CASE WHEN acquisition_kind='Donation'
+                                         THEN purchase_gil ELSE 0 END),0) donations,
                       COALESCE(SUM(sale_gil),0) sales,
                       SUM(CASE WHEN status='Held' THEN 1 ELSE 0 END) held_count,
                       SUM(CASE WHEN status='Purchased' THEN 1 ELSE 0 END) purchased_count,
                       SUM(CASE WHEN status='Sold' THEN 1 ELSE 0 END) sold_count
                FROM ls_bank_items"""
-        ).fetchone()
+        ).fetchone())
+        bank_summary["sales"] += bank_summary["donations"]
         dynamis_payout_events = [
             event for event in guild_events if is_dynamis_payout_event(event)
         ]
@@ -4868,7 +4871,7 @@ def create_app(test_config=None):
         item = request.form.get("item", "").strip()[:120]
         event_id = request.form.get("event_id", "").strip()
         holder_id = request.form.get("holder_member_id", "").strip()
-        purchaser_id = request.form.get("purchaser_member_id", "").strip() or holder_id
+        purchaser_id = request.form.get("purchaser_member_id", "").strip()
         acquisition_kind = request.form.get("acquisition_kind", "").strip()
         status = request.form.get("status", "Held").strip()
         status = "Held" if status == "Drop" else status
@@ -4884,8 +4887,12 @@ def create_app(test_config=None):
             "Purchase": "Auction House", "Pop Item": "Other",
             "Timeless Hourglass": "Other", "Manual": "Other", "Merc Sell": "Mercenary",
         }.get(acquisition_kind, acquisition_kind)
-        if acquisition_kind in {"Event Drop", "Donation"}:
+        if acquisition_kind == "Donation" and not item and purchase_gil > 0:
+            item = "Gil Donation"
+        if acquisition_kind == "Event Drop":
             purchase_gil, purchaser_id = 0, ""
+        elif not purchaser_id:
+            purchaser_id = holder_id
         event = get_db().execute("SELECT id FROM guild_events WHERE id=?", (event_id,)).fetchone() if event_id.isdigit() else None
         holder = get_db().execute("SELECT id,name FROM members WHERE id=?", (holder_id,)).fetchone() if holder_id.isdigit() else None
         purchaser = get_db().execute("SELECT id,name FROM members WHERE id=?", (purchaser_id,)).fetchone() if purchaser_id.isdigit() else None
@@ -4897,6 +4904,8 @@ def create_app(test_config=None):
                 or status not in {"Held", "Purchased", "Sold"}
                 or (acquisition_kind == "Mercenary" and sale_gil <= 0)
                 or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)
+                or (acquisition_kind == "Donation"
+                    and (not purchaser or not holder or holder["id"] not in ls_bank_officer_ids()))
                 or (acquisition_kind not in {"Event Drop", "Donation"}
                     and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
             abort(400, description="Complete the LS Bank item using valid values.")
@@ -4963,7 +4972,7 @@ def create_app(test_config=None):
         if not entry:
             abort(404)
         holder_id = request.form.get("holder_member_id", "").strip()
-        purchaser_id = request.form.get("purchaser_member_id", "").strip() or holder_id
+        purchaser_id = request.form.get("purchaser_member_id", "").strip()
         status = request.form.get("status", "").strip()
         acquisition_kind = request.form.get("acquisition_kind", entry["acquisition_kind"]).strip()
         event_id = request.form.get("event_id", "").strip()
@@ -4975,8 +4984,10 @@ def create_app(test_config=None):
             "Purchase": "Auction House", "Pop Item": "Other",
             "Timeless Hourglass": "Other", "Manual": "Other", "Merc Sell": "Mercenary",
         }.get(acquisition_kind, acquisition_kind)
-        if acquisition_kind in {"Event Drop", "Donation"}:
+        if acquisition_kind == "Event Drop":
             purchase_gil, purchaser_id = 0, ""
+        elif not purchaser_id:
+            purchaser_id = holder_id
         raw_sale_gil = request.form.get("sale_gil")
         sale_gil = (entry["sale_gil"] if status == "Sold" and not str(raw_sale_gil or "").strip()
                     else (0 if not str(raw_sale_gil or "").strip() else bank_gil_value(raw_sale_gil)))
@@ -4994,6 +5005,8 @@ def create_app(test_config=None):
                 or (event_id and not event)
                 or (status == "Sold" and sale_channel not in {"", "Auction House", "Bazaar"})
                 or (status != "Sold" and sale_channel)
+                or (acquisition_kind == "Donation"
+                    and (not purchaser or not holder or holder["id"] not in ls_bank_officer_ids()))
                 or (acquisition_kind not in {"Event Drop", "Donation"}
                     and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
             abort(400, description="Use a valid holder, sale status, and gil amount.")
@@ -5083,7 +5096,7 @@ def create_app(test_config=None):
                 "Purchase": "Auction House", "Pop Item": "Other",
                 "Timeless Hourglass": "Other", "Manual": "Other", "Merc Sell": "Mercenary",
             }.get(acquisition_kind, acquisition_kind)
-            if acquisition_kind in {"Event Drop", "Donation"}:
+            if acquisition_kind == "Event Drop":
                 purchase_gil, purchaser_id = 0, ""
                 purchaser = None
             # A filled sale price is the quick bulk-sale action; a blank field
@@ -5096,6 +5109,8 @@ def create_app(test_config=None):
                     or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                     or (acquisition_kind == "Mercenary" and sale_gil <= 0)
                     or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)
+                    or (acquisition_kind == "Donation"
+                        and (not purchaser or not holder or holder["id"] not in ls_bank_officer_ids()))
                     or (acquisition_kind not in {"Event Drop", "Donation"}
                         and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
                 abort(400, description="Use valid LS Bank values before saving all rows.")
