@@ -49,6 +49,9 @@ def test_alliance_builder_supports_two_three_party_alliances(app):
     assert b"Find Characters" not in page.data
     assert b"Character search" not in page.data
     assert b'class="roster-inline-filters"' in page.data
+    assert b'id="alliance-rsvp-status"' in page.data
+    assert b'id="alliance-assignment"' in page.data
+    assert b'id="allow-alliance-duplicates"' in page.data
     assert b'id="alliance-character-search"' in page.data
     assert page.data.count(b'class="add-custom-slot"') == 36
     assert b'id="custom-alliance-dialog"' in page.data
@@ -164,6 +167,35 @@ def test_alliance_save_rejects_duplicate_members_and_unrostered_jobs(app):
         "name": "Forged Job", "member_1_1": str(maven), "job_1_1": "WHM",
     })
     assert forged.status_code == 400
+
+
+def test_alliance_two_can_allow_and_highlight_cross_alliance_duplicates(app):
+    maven, _lion = add_roster(app)
+    client = app.test_client()
+    identify(client, maven)
+    response = client.post("/alliance-builder/save", data={
+        "name": "Two Run Event", "allow_second_alliance_duplicates": "1",
+        "member_1_1": str(maven), "job_1_1": "PLD",
+        "member_4_1": str(maven), "job_4_1": "PLD",
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b'id="allow-alliance-duplicates"' in response.data
+    assert b'name="allow_second_alliance_duplicates" value="1" checked' in response.data
+    with app.app_context():
+        database = sqlite3.connect(app.config["DATABASE"])
+        assert database.execute("SELECT allow_second_alliance_duplicates FROM alliance_events").fetchone()[0] == 1
+        assert database.execute("SELECT COUNT(*) FROM alliance_slots WHERE member_id=?", (maven,)).fetchone()[0] == 2
+        database.close()
+    script = client.get("/static/alliance_builder.js").data
+    assert b"cross-alliance-duplicate" in script
+    assert b"alliance-rsvp-status" in script
+
+    same_alliance = client.post("/alliance-builder/save", data={
+        "name": "Invalid Same Run", "allow_second_alliance_duplicates": "1",
+        "member_1_1": str(maven), "job_1_1": "PLD",
+        "member_2_1": str(maven), "job_2_1": "PLD",
+    })
+    assert same_alliance.status_code == 400
 
 
 def test_alliance_builder_requires_member_sign_in_not_administrator(tmp_path):
