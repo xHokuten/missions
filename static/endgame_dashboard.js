@@ -319,6 +319,12 @@
     if (labelText) labelText.nodeValue = bankSource.value === "Mercenary" ? "Gil received" : "Purchase gil";
     if (purchaseInput) purchaseInput.placeholder = bankSource.value === "Mercenary" ? "Gil received" : "0";
   });
+  const defaultTimelessHourglassSource = () => {
+    if (bankSource && bankMarketKey(bankItemInput?.value) === "timelesshourglass") {
+      bankSource.value = "Other";
+      bankSource.dispatchEvent(new Event("change"));
+    }
+  };
   document.querySelectorAll(".ls-bank-row-editor select[name='status']").forEach(select => {
     if (![...select.options].some(option => option.value === "Purchased")) select.add(new Option("Purchased", "Purchased"));
     const savedStatus = select.closest("tr")?.dataset.status;
@@ -454,8 +460,15 @@
       kind.value = isPurchased ? "purchased" : "dropped";
       const applyHeldKind = () => {
         const purchased = kind.value === "purchased";
-        source.value = purchased ? "Auction House" : "Event Drop";
-        if (!purchased) purchase.value = "0";
+        const itemName = row.cells[0]?.querySelector("b")?.textContent.replace(/^\d+×\s*/, "").trim() || "";
+        source.value = purchased ? (bankMarketKey(itemName) === "timelesshourglass" ? "Other" : "Auction House") : "Event Drop";
+        if (purchased) {
+          event.value = "";
+          if (!purchaser.value) purchaser.value = form.elements.holder_member_id.value;
+        } else {
+          purchase.value = "0";
+          purchaser.value = "";
+        }
         source.dispatchEvent(new Event("change"));
         statusHidden.value = "Held";
         if (badge) {
@@ -465,7 +478,6 @@
         }
         if (purchased) {
           purchaseEditor.classList.add("open");
-          purchase.focus();
         }
       };
       kind.addEventListener("change", applyHeldKind);
@@ -685,6 +697,7 @@
       option.addEventListener("mousedown", event => {
         event.preventDefault();
         bankItemInput.value = name;
+        defaultTimelessHourglassSource();
         bankItemCatalog.hidden = true;
         bankItemInput.setAttribute("aria-expanded", "false");
       });
@@ -700,7 +713,7 @@
     bankCanonicalItemNames = new Map(bankCatalogNames.map(name => [bankMarketKey(name), name]));
     showBankItemSuggestions();
   };
-  bankItemInput?.addEventListener("input", showBankItemSuggestions);
+  bankItemInput?.addEventListener("input", () => { showBankItemSuggestions(); defaultTimelessHourglassSource(); });
   bankItemInput?.addEventListener("focus", showBankItemSuggestions);
   bankItemInput?.addEventListener("blur", () => setTimeout(() => {
     if (bankItemCatalog) bankItemCatalog.hidden = true;

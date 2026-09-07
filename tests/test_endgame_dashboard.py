@@ -54,7 +54,7 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=65" in response.data
+    assert b"endgame_dashboard.js?v=66" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
@@ -337,15 +337,15 @@ def test_ls_bank_tracks_event_items_sales_and_officer_custody(tmp_path):
     created = client.post("/endgame/bank", data={
         "csrf_token": "token", "item": "Damascene Cloth", "event_id": str(event_id),
         "holder_member_id": str(holder_id), "acquisition_kind": "Event Drop", "quantity": "2",
-        "purchase_gil": "0", "notes": "Sky run",
+        "purchaser_member_id": str(holder_id), "purchase_gil": "123456", "notes": "Sky run",
     })
     assert created.status_code == 302
     database = sqlite3.connect(app.config["DATABASE"])
     bank_item_id = database.execute("SELECT id FROM ls_bank_items").fetchone()[0]
     assert database.execute(
-        "SELECT event_id,item,quantity,acquisition_kind,status,purchase_gil,holder_member_id FROM ls_bank_items WHERE id=?",
+        "SELECT event_id,item,quantity,acquisition_kind,status,purchase_gil,holder_member_id,purchaser_member_id FROM ls_bank_items WHERE id=?",
         (bank_item_id,),
-    ).fetchone() == (event_id, "Damascene Cloth", 2, "Event Drop", "Held", 0, holder_id)
+    ).fetchone() == (event_id, "Damascene Cloth", 2, "Event Drop", "Held", 0, holder_id, None)
     database.close()
     updated = client.post(f"/endgame/bank/{bank_item_id}/update", data={
         "csrf_token": "token", "holder_member_id": str(holder_id), "status": "Sold", "sale_channel": "Bazaar", "sale_gil": "450000", "notes": "Sold in Jeuno",
@@ -381,6 +381,10 @@ def test_ls_bank_purchases_reduce_cash_and_bulk_sale_prices_mark_items_sold(tmp_
     assert created.status_code == 302
     database = sqlite3.connect(app.config["DATABASE"])
     purchased_id = database.execute("SELECT id FROM ls_bank_items WHERE item='Timeless Hourglass'").fetchone()[0]
+    assert database.execute(
+        "SELECT acquisition_kind,status,event_id,purchase_gil,purchaser_member_id FROM ls_bank_items WHERE id=?",
+        (purchased_id,),
+    ).fetchone() == ("Other", "Held", None, 500000, holder_id)
     database.execute("INSERT INTO ls_bank_items(item,quantity,acquisition_kind,status,holder_member_id) VALUES('Behemoth Hide',1,'Event Drop','Held',?)", (holder_id,))
     held_id = database.execute("SELECT id FROM ls_bank_items WHERE item='Behemoth Hide'").fetchone()[0]
     database.commit()
