@@ -482,10 +482,6 @@
     purchaserLabel.append(purchaser);
     addInlineEditor(row.cells[2], [holderLabel, purchaserLabel]);
     const purchaseEditor = addInlineEditor(row.cells[3], [purchase]);
-    const donationAmountLabel = document.createElement("small");
-    donationAmountLabel.className = "bank-donation-amount-label";
-    donationAmountLabel.textContent = "Donated Gil";
-    row.cells[3].prepend(donationAmountLabel);
     const syncRowDonationFields = () => {
       const donation = source.value === "Donation";
       const savedHolder = form.elements.holder_member_id.value;
@@ -500,7 +496,6 @@
       holderLabel.childNodes[0].nodeValue = donation ? "Donated to" : "Held by";
       purchaserLabel.childNodes[0].nodeValue = donation ? "Donated by" : "Purchased by";
       purchase.setAttribute("aria-label", donation ? "Donated Gil" : "Purchase gil");
-      donationAmountLabel.hidden = !donation;
     };
     source.addEventListener("change", syncRowDonationFields);
     syncRowDonationFields();

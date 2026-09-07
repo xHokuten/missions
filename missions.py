@@ -4965,6 +4965,66 @@ def create_app(test_config=None):
         flash(f"Recorded {amount_gil:,}g transfer from {sender['name']} to {recipient['name']}.", "success")
         return redirect(url_for("endgame_dashboard", _anchor="bank"))
 
+    @app.post("/endgame/bank/gil-transfer/<int:transfer_id>/update")
+    @admin_required
+    def update_ls_gil_transfer(transfer_id):
+        transfer = get_db().execute(
+            "SELECT * FROM ls_gil_transfers WHERE id=?", (transfer_id,)
+        ).fetchone()
+        if not transfer:
+            abort(404)
+        from_id = request.form.get("from_member_id", "").strip()
+        to_id = request.form.get("to_member_id", "").strip()
+        notes = request.form.get("notes", "").strip()[:500]
+        try:
+            amount_gil = int(request.form.get("amount_gil", "0"))
+        except (TypeError, ValueError):
+            amount_gil = 0
+        sender = get_db().execute("SELECT id,name FROM members WHERE id=?", (from_id,)).fetchone() if from_id.isdigit() else None
+        recipient = get_db().execute("SELECT id,name FROM members WHERE id=?", (to_id,)).fetchone() if to_id.isdigit() else None
+        officer_ids = ls_bank_officer_ids()
+        if (not sender or not recipient or sender["id"] == recipient["id"]
+                or sender["id"] not in officer_ids or recipient["id"] not in officer_ids
+                or not 1 <= amount_gil <= 2_000_000_000):
+            abort(400, description="Choose two different officers and enter a valid gil amount.")
+        actor = require_member_identity()
+        get_db().execute(
+            """UPDATE ls_gil_transfers SET from_member_id=?,to_member_id=?,amount_gil=?,notes=?
+               WHERE id=?""",
+            (sender["id"], recipient["id"], amount_gil, notes, transfer_id),
+        )
+        get_db().execute(
+            "INSERT INTO admin_change_log(actor_member_id,area,action,details) VALUES(?,?,?,?)",
+            (actor["id"], "LS Bank", "Gil transfer updated",
+             f"Transfer #{transfer_id}: {amount_gil:,}g / {sender['name']} to {recipient['name']}"),
+        )
+        get_db().commit()
+        flash("Gil transfer updated.", "success")
+        return redirect(url_for("endgame_dashboard", _anchor="bank"))
+
+    @app.post("/endgame/bank/gil-transfer/<int:transfer_id>/delete")
+    @admin_required
+    def delete_ls_gil_transfer(transfer_id):
+        transfer = get_db().execute(
+            """SELECT t.*,sender.name from_name,recipient.name to_name
+               FROM ls_gil_transfers t
+               JOIN members sender ON sender.id=t.from_member_id
+               JOIN members recipient ON recipient.id=t.to_member_id WHERE t.id=?""",
+            (transfer_id,),
+        ).fetchone()
+        if not transfer:
+            abort(404)
+        actor = require_member_identity()
+        get_db().execute("DELETE FROM ls_gil_transfers WHERE id=?", (transfer_id,))
+        get_db().execute(
+            "INSERT INTO admin_change_log(actor_member_id,area,action,details) VALUES(?,?,?,?)",
+            (actor["id"], "LS Bank", "Gil transfer removed",
+             f"Transfer #{transfer_id}: {transfer['amount_gil']:,}g / {transfer['from_name']} to {transfer['to_name']}"),
+        )
+        get_db().commit()
+        flash("Gil transfer removed.", "success")
+        return redirect(url_for("endgame_dashboard", _anchor="bank"))
+
     @app.post("/endgame/bank/<int:bank_item_id>/update")
     @admin_required
     def update_ls_bank_item(bank_item_id):

@@ -54,7 +54,7 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=69" in response.data
+    assert b"endgame_dashboard.js?v=70" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
@@ -437,8 +437,10 @@ def test_ls_bank_records_officer_gil_transfer_separately_from_inventory(tmp_path
     })
     assert response.status_code == 302
     database = sqlite3.connect(app.config["DATABASE"])
+    transfer_id = database.execute("SELECT id FROM ls_gil_transfers").fetchone()[0]
     assert database.execute(
-        "SELECT from_member_id,to_member_id,amount_gil,notes FROM ls_gil_transfers"
+        "SELECT from_member_id,to_member_id,amount_gil,notes FROM ls_gil_transfers WHERE id=?",
+        (transfer_id,),
     ).fetchone() == (1, recipient_id, 750000, "Treasury handoff")
     assert database.execute("SELECT COUNT(*) FROM ls_bank_items").fetchone()[0] == inventory_before
     database.close()
@@ -448,6 +450,32 @@ def test_ls_bank_records_officer_gil_transfer_separately_from_inventory(tmp_path
     assert b"750,000g" in page
     assert b"window.ENDGAME_GIL_TRANSFERS=" in page
     assert b"Transfer to" in client.get("/static/endgame_dashboard.js").data
+    assert f'/endgame/bank/gil-transfer/{transfer_id}/update'.encode() in page
+    assert f'/endgame/bank/gil-transfer/{transfer_id}/delete'.encode() in page
+
+    updated = client.post(f"/endgame/bank/gil-transfer/{transfer_id}/update", data={
+        "csrf_token": "token", "from_member_id": str(recipient_id), "to_member_id": "1",
+        "amount_gil": "500000", "notes": "Corrected handoff",
+    })
+    assert updated.status_code == 302
+    database = sqlite3.connect(app.config["DATABASE"])
+    assert database.execute(
+        "SELECT from_member_id,to_member_id,amount_gil,notes FROM ls_gil_transfers WHERE id=?",
+        (transfer_id,),
+    ).fetchone() == (recipient_id, 1, 500000, "Corrected handoff")
+    database.close()
+
+    removed = client.post(
+        f"/endgame/bank/gil-transfer/{transfer_id}/delete", data={"csrf_token": "token"}
+    )
+    assert removed.status_code == 302
+    database = sqlite3.connect(app.config["DATABASE"])
+    assert database.execute("SELECT 1 FROM ls_gil_transfers WHERE id=?", (transfer_id,)).fetchone() is None
+    actions = {row[0] for row in database.execute(
+        "SELECT action FROM admin_change_log WHERE action LIKE 'Gil transfer%'"
+    ).fetchall()}
+    assert {"Gil transferred", "Gil transfer updated", "Gil transfer removed"} <= actions
+    database.close()
 
 
 def test_ls_bank_gil_donation_records_member_and_receiving_officer(tmp_path):
