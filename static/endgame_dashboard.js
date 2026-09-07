@@ -313,6 +313,34 @@
     purchaserLabel.append(purchaser);
     bankAddHolder.closest("label")?.after(purchaserLabel);
   }
+  const syncBankAddAccountingFields = () => {
+    if (!bankSource?.form || !bankAddHolder) return;
+    const donation = bankSource.value === "Donation";
+    const purchaseInput = bankSource.form.querySelector("input[name='purchase_gil']");
+    const purchaser = bankSource.form.querySelector("select[name='purchaser_member_id']");
+    const purchaserLabel = purchaser?.closest("label");
+    const holderLabel = bankAddHolder.closest("label");
+    const selectedHolder = bankAddHolder.value;
+    const selectedPurchaser = purchaser?.value || "";
+    bankAddHolder.replaceChildren(new Option(donation ? "Choose receiving officer" : "Unassigned", ""),
+      ...(donation ? bankPurchaserOfficers : bankHolderMembers).map(member => new Option(member.name, member.id)));
+    bankAddHolder.value = [...bankAddHolder.options].some(option => option.value === selectedHolder) ? selectedHolder : "";
+    if (purchaser) {
+      purchaser.replaceChildren(new Option(donation ? "Choose donating member" : "Same as held by", ""),
+        ...(donation ? bankHolderMembers : bankPurchaserOfficers).map(member => new Option(member.name, member.id)));
+      purchaser.value = [...purchaser.options].some(option => option.value === selectedPurchaser) ? selectedPurchaser : "";
+      purchaser.required = donation;
+    }
+    if (holderLabel?.childNodes[0]) holderLabel.childNodes[0].nodeValue = donation ? "Donated to" : "Held by";
+    if (purchaserLabel?.childNodes[0]) purchaserLabel.childNodes[0].nodeValue = donation ? "Donated by" : "Purchased by";
+    const purchaseLabel = purchaseInput?.closest("label");
+    if (purchaseLabel?.childNodes[0]) purchaseLabel.childNodes[0].nodeValue = donation ? "Donated Gil" : (bankSource.value === "Mercenary" ? "Gil received" : "Purchase gil");
+    if (purchaseInput) purchaseInput.setAttribute("aria-label", donation ? "Donated Gil" : "Purchase gil");
+    if (bankItemInput) {
+      bankItemInput.required = !donation;
+      bankItemInput.placeholder = donation ? "Optional item; blank records a Gil Donation" : "Search the PSXI item catalog";
+    }
+  };
   bankSource?.addEventListener("change", () => {
     if (bankNewStatus) bankNewStatus.value = "Held";
     const purchaseInput = bankSource.form?.querySelector("input[name='purchase_gil']");
@@ -320,7 +348,9 @@
     const labelText = purchaseLabel?.childNodes?.[0];
     if (labelText) labelText.nodeValue = bankSource.value === "Mercenary" ? "Gil received" : "Purchase gil";
     if (purchaseInput) purchaseInput.placeholder = bankSource.value === "Mercenary" ? "Gil received" : "0";
+    syncBankAddAccountingFields();
   });
+  syncBankAddAccountingFields();
   const defaultTimelessHourglassSource = () => {
     if (bankSource && bankMarketKey(bankItemInput?.value) === "timelesshourglass") {
       bankSource.value = "Other";
@@ -452,6 +482,28 @@
     purchaserLabel.append(purchaser);
     addInlineEditor(row.cells[2], [holderLabel, purchaserLabel]);
     const purchaseEditor = addInlineEditor(row.cells[3], [purchase]);
+    const donationAmountLabel = document.createElement("small");
+    donationAmountLabel.className = "bank-donation-amount-label";
+    donationAmountLabel.textContent = "Donated Gil";
+    row.cells[3].prepend(donationAmountLabel);
+    const syncRowDonationFields = () => {
+      const donation = source.value === "Donation";
+      const savedHolder = form.elements.holder_member_id.value;
+      const savedPurchaser = purchaser.value;
+      form.elements.holder_member_id.replaceChildren(new Option(donation ? "Choose receiving officer" : "Unassigned", ""),
+        ...(donation ? bankPurchaserOfficers : bankHolderMembers).map(member => new Option(member.name, member.id)));
+      form.elements.holder_member_id.value = [...form.elements.holder_member_id.options].some(option => option.value === savedHolder) ? savedHolder : "";
+      purchaser.replaceChildren(new Option(donation ? "Choose donating member" : "Same as held by", ""),
+        ...(donation ? bankHolderMembers : bankPurchaserOfficers).map(member => new Option(member.name, member.id)));
+      purchaser.value = [...purchaser.options].some(option => option.value === savedPurchaser) ? savedPurchaser : "";
+      purchaser.required = donation;
+      holderLabel.childNodes[0].nodeValue = donation ? "Donated to" : "Held by";
+      purchaserLabel.childNodes[0].nodeValue = donation ? "Donated by" : "Purchased by";
+      purchase.setAttribute("aria-label", donation ? "Donated Gil" : "Purchase gil");
+      donationAmountLabel.hidden = !donation;
+    };
+    source.addEventListener("change", syncRowDonationFields);
+    syncRowDonationFields();
     const isUsed = /\bUsed:/.test(row.cells[0]?.textContent || "");
     const heldInventory = ["held", "purchased"].includes(row.dataset.status) && !isUsed;
     if (heldInventory) {
@@ -676,6 +728,17 @@
           }
           setLeadingText(row.cells[1], source.value);
           setLeadingText(row.cells[2], form.elements.holder_member_id.selectedOptions[0]?.textContent || "Unassigned");
+          let donorDisplay = row.cells[2].querySelector(".bank-donor-display");
+          if (source.value === "Donation") {
+            if (!donorDisplay) {
+              donorDisplay = document.createElement("small");
+              donorDisplay.className = "bank-donor-display";
+              row.cells[2].append(donorDisplay);
+            }
+            donorDisplay.textContent = `Donated by ${purchaser.selectedOptions[0]?.textContent || "Unknown member"}`;
+          } else {
+            donorDisplay?.remove();
+          }
           const savedPurchase = payload.purchase_gil ?? form.elements.purchase_gil.value;
           setLeadingText(row.cells[3], formatBankGil(savedPurchase));
           row.dataset.purchase = String(savedPurchase || "0");
@@ -730,6 +793,7 @@
     bankItemInput?.setAttribute("aria-expanded", "false");
   }, 120));
   bankItemInput?.form?.addEventListener("submit", () => {
+    if (bankSource?.value === "Donation" && !bankItemInput.value.trim()) bankItemInput.value = "Gil Donation";
     const canonical = bankCanonicalItemNames.get(bankMarketKey(bankItemInput.value));
     if (canonical) bankItemInput.value = canonical;
   });
@@ -740,6 +804,7 @@
       const source = row.dataset.source || "";
       const purchased = !/^(event drop|donation)/.test(source);
       if (purchased) cash -= Number(row.dataset.purchase || 0);
+      if (/^donation/.test(source)) cash += Number(row.dataset.purchase || 0);
       if (row.dataset.status === "sold") {
         const sale = row.cells[5]?.textContent.match(/[\d,]+g/)?.[0] || "0";
         cash += Number(sale.replace(/[^\d]/g, ""));
@@ -815,21 +880,30 @@
   const bankDetailDialog = document.createElement("dialog");
   bankDetailDialog.className = "ls-bank-detail-dialog";
   document.body.append(bankDetailDialog);
-  const bankDetailRows = kind => [...document.querySelectorAll("#ls-bank-body tr[data-bank-search]")].filter(row => {
+  const bankDetailRows = kind => {
+    const rows = [...document.querySelectorAll("#ls-bank-body tr[data-bank-search]")].filter(row => {
     const source = row.dataset.source || "";
-    if (kind === "cash") return row.dataset.status === "sold" || !/^(event drop|donation)/.test(source);
+    if (kind === "cash") return row.dataset.status === "sold" || /^donation/.test(source) || !/^(event drop|donation)/.test(source);
     const purchased = !/^(event drop|donation)/.test(source);
     return row.dataset.status === "held" && (kind === "purchased" ? purchased : !purchased);
   }).map(row => {
     const heldBy = row.querySelector("select[name='holder_member_id'] option:checked")?.textContent || row.cells[2]?.textContent.trim() || "Unassigned";
     const purchasedBy = row.querySelector("select[name='purchaser_member_id'] option:checked")?.textContent || heldBy;
-    const holder = kind === "cash" && row.dataset.status !== "sold" ? purchasedBy : heldBy;
+    const donation = /^donation/.test(row.dataset.source || "");
+    const holder = kind === "cash" && row.dataset.status !== "sold" && !donation ? purchasedBy : heldBy;
     const item = row.cells[0]?.querySelector("b")?.textContent.trim() || "Item";
     const source = [row.dataset.bankSourceLabel, row.dataset.bankEventLabel].filter(Boolean).join(" · ");
     const market = row.querySelector(".bank-market-value")?.textContent.trim() || "—";
-    const cash = row.dataset.status === "sold" ? row.cells[5]?.textContent.match(/[\d,]+g/)?.[0] || "—" : `-${Number(row.dataset.purchase || 0).toLocaleString()}g`;
+    const cash = donation ? Number(row.dataset.purchase || 0) : row.dataset.status === "sold" ? row.cells[5]?.textContent.match(/[\d,]+g/)?.[0] || "—" : `-${Number(row.dataset.purchase || 0).toLocaleString()}g`;
     return {holder, item, source, value: kind === "cash" ? cash : market};
   });
+    if (kind === "cash") (window.ENDGAME_GIL_TRANSFERS || []).forEach(transfer => {
+      const detail = [String(transfer.transferred_at || "").slice(0, 16).replace("T", " "), transfer.notes].filter(Boolean).join(" · ");
+      rows.push({holder: transfer.from_name, item: `Transfer to ${transfer.to_name}`, source: detail, value: -Number(transfer.amount_gil || 0)});
+      rows.push({holder: transfer.to_name, item: `Transfer from ${transfer.from_name}`, source: detail, value: Number(transfer.amount_gil || 0)});
+    });
+    return rows;
+  };
   const openBankDetail = (kind, title) => {
     const rows = bankDetailRows(kind);
     const groups = [...rows.reduce((all, row) => {
@@ -935,7 +1009,19 @@
           const id = form.action.match(/\/bank\/(\d+)\/update/)?.[1];
           const purchaser = form.elements.purchaser_member_id;
           const storedPurchaser = id ? payload.purchasers?.[id] : null;
-          if (purchaser && storedPurchaser) purchaser.value = String(storedPurchaser);
+          if (purchaser && storedPurchaser) {
+            purchaser.value = String(storedPurchaser);
+            const row = form.closest("tr");
+            if (/^donation/.test(row?.dataset.source || "")) {
+              let donor = row.cells[2].querySelector(".bank-donor-display");
+              if (!donor) {
+                donor = document.createElement("small");
+                donor.className = "bank-donor-display";
+                row.cells[2].append(donor);
+              }
+              donor.textContent = `Donated by ${purchaser.selectedOptions[0]?.textContent || "Unknown member"}`;
+            }
+          }
         });
       })
       .catch(() => {});

@@ -54,7 +54,7 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=68" in response.data
+    assert b"endgame_dashboard.js?v=69" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
@@ -446,6 +446,45 @@ def test_ls_bank_records_officer_gil_transfer_separately_from_inventory(tmp_path
     assert b"Add Gil Transfer" in page
     assert b"Treasury handoff" in page
     assert b"750,000g" in page
+    assert b"window.ENDGAME_GIL_TRANSFERS=" in page
+    assert b"Transfer to" in client.get("/static/endgame_dashboard.js").data
+
+
+def test_ls_bank_gil_donation_records_member_and_receiving_officer(tmp_path):
+    import sqlite3
+
+    app = make_app(tmp_path)
+    client = app.test_client()
+    sign_in(client, member_id=1, admin=True)
+    database = sqlite3.connect(app.config["DATABASE"])
+    database.execute("INSERT INTO members(name,discord_admin) VALUES('GenerousMember',0)")
+    donor_id = database.execute("SELECT id FROM members WHERE name='GenerousMember'").fetchone()[0]
+    database.commit()
+    database.close()
+
+    response = client.post("/endgame/bank", data={
+        "csrf_token": "token", "item": "", "acquisition_kind": "Donation",
+        "status": "Held", "quantity": "1", "purchase_gil": "250000",
+        "holder_member_id": "1", "purchaser_member_id": str(donor_id),
+        "notes": "Linkshell donation",
+    })
+    assert response.status_code == 302
+    database = sqlite3.connect(app.config["DATABASE"])
+    assert database.execute(
+        "SELECT item,acquisition_kind,purchase_gil,holder_member_id,purchaser_member_id FROM ls_bank_items"
+    ).fetchone() == ("Gil Donation", "Donation", 250000, 1, donor_id)
+    database.close()
+    page = client.get("/endgame#bank").data
+    assert b'data-bank-cash="250000"' in page
+    assert b"GenerousMember" in page
+    assert b"Donated Gil" in client.get("/static/endgame_dashboard.js").data
+
+    invalid = client.post("/endgame/bank", data={
+        "csrf_token": "token", "item": "Gil Donation", "acquisition_kind": "Donation",
+        "status": "Held", "quantity": "1", "purchase_gil": "100",
+        "holder_member_id": str(donor_id), "purchaser_member_id": str(donor_id),
+    })
+    assert invalid.status_code == 400
 
 
 def test_past_endgame_events_show_most_recent_first(tmp_path):
