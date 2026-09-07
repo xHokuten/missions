@@ -54,7 +54,7 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=70" in response.data
+    assert b"endgame_dashboard.js?v=71" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
@@ -507,12 +507,12 @@ def test_ls_bank_gil_donation_records_member_and_receiving_officer(tmp_path):
     assert b"GenerousMember" in page
     assert b"Donated Gil" in client.get("/static/endgame_dashboard.js").data
 
-    invalid = client.post("/endgame/bank", data={
+    member_held = client.post("/endgame/bank", data={
         "csrf_token": "token", "item": "Gil Donation", "acquisition_kind": "Donation",
         "status": "Held", "quantity": "1", "purchase_gil": "100",
         "holder_member_id": str(donor_id), "purchaser_member_id": str(donor_id),
     })
-    assert invalid.status_code == 400
+    assert member_held.status_code == 302
 
 
 def test_past_endgame_events_show_most_recent_first(tmp_path):

@@ -4904,8 +4904,7 @@ def create_app(test_config=None):
                 or status not in {"Held", "Purchased", "Sold"}
                 or (acquisition_kind == "Mercenary" and sale_gil <= 0)
                 or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)
-                or (acquisition_kind == "Donation"
-                    and (not purchaser or not holder or holder["id"] not in ls_bank_officer_ids()))
+                or (acquisition_kind == "Donation" and (not purchaser or not holder))
                 or (acquisition_kind not in {"Event Drop", "Donation"}
                     and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
             abort(400, description="Complete the LS Bank item using valid values.")
@@ -5065,8 +5064,7 @@ def create_app(test_config=None):
                 or (event_id and not event)
                 or (status == "Sold" and sale_channel not in {"", "Auction House", "Bazaar"})
                 or (status != "Sold" and sale_channel)
-                or (acquisition_kind == "Donation"
-                    and (not purchaser or not holder or holder["id"] not in ls_bank_officer_ids()))
+                or (acquisition_kind == "Donation" and (not purchaser or not holder))
                 or (acquisition_kind not in {"Event Drop", "Donation"}
                     and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
             abort(400, description="Use a valid holder, sale status, and gil amount.")
@@ -5169,8 +5167,7 @@ def create_app(test_config=None):
                     or acquisition_kind not in {"Event Drop", "Auction House", "Bazaar", "Donation", "Other", "Mercenary", "Purchase", "Pop Item", "Timeless Hourglass", "Merc Sell", "Manual"}
                     or (acquisition_kind == "Mercenary" and sale_gil <= 0)
                     or (event_id and not event) or (holder_id and not holder) or (purchaser_id and not purchaser)
-                    or (acquisition_kind == "Donation"
-                        and (not purchaser or not holder or holder["id"] not in ls_bank_officer_ids()))
+                    or (acquisition_kind == "Donation" and (not purchaser or not holder))
                     or (acquisition_kind not in {"Event Drop", "Donation"}
                         and (not purchaser or purchaser["id"] not in ls_bank_officer_ids()))):
                 abort(400, description="Use valid LS Bank values before saving all rows.")
