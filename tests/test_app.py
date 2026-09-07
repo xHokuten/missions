@@ -111,6 +111,9 @@ def test_header_uses_single_yellow_account_control(tmp_path):
         session["member_id"] = 1
     signed_in = client.get("/")
     assert b"Sign Out (Imaven)" in signed_in.data
+    assert b'href="https://www.paypal.com/ncp/payment/NML5WB6PTNTAE"' in signed_in.data
+    assert b'class="button donate-button"' in signed_in.data
+    assert b'target="_blank" rel="noopener noreferrer"' in signed_in.data
     assert b"HorizonXI Linkshell Progress" not in signed_in.data
     assert b"Add or Update Progress" in signed_in.data
     nav = signed_in.data.split(b'<nav class="site-nav"', 1)[1].split(b"</nav>", 1)[0]
