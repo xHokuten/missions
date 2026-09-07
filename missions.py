@@ -3191,6 +3191,14 @@ def create_app(test_config=None):
                 ",".join("?" for _ in officer_names) or "''"
             ), tuple(officer_names)
         ).fetchall()]
+        gil_transfers = [dict(row) for row in get_db().execute(
+            """SELECT t.*,sender.name from_name,recipient.name to_name,recorder.name recorded_by_name
+               FROM ls_gil_transfers t
+               JOIN members sender ON sender.id=t.from_member_id
+               JOIN members recipient ON recipient.id=t.to_member_id
+               LEFT JOIN members recorder ON recorder.id=t.recorded_by
+               ORDER BY t.transferred_at DESC,t.id DESC LIMIT 250"""
+        ).fetchall()]
         bank_summary = get_db().execute(
             """SELECT COALESCE(SUM(CASE WHEN acquisition_kind NOT IN ('Event Drop','Donation')
                                          THEN purchase_gil ELSE 0 END),0) purchases,
@@ -3292,6 +3300,7 @@ def create_app(test_config=None):
             member_details=member_details,
             bank_items=bank_items,
             bank_officers=bank_officers,
+            gil_transfers=gil_transfers,
             bank_summary=dict(bank_summary),
             dynamis_payout_events=dynamis_payout_events,
             selected_payout_event=selected_payout_event,
@@ -4890,6 +4899,48 @@ def create_app(test_config=None):
         )
         get_db().commit()
         return bank_saved_response(f"Added {quantity}x {item} to the LS Bank.")
+
+    @app.post("/endgame/bank/gil-transfer")
+    @admin_required
+    def record_ls_gil_transfer():
+        from_id = request.form.get("from_member_id", "").strip()
+        to_id = request.form.get("to_member_id", "").strip()
+        notes = request.form.get("notes", "").strip()[:500]
+        try:
+            amount_gil = int(request.form.get("amount_gil", "0"))
+        except (TypeError, ValueError):
+            amount_gil = 0
+        sender = get_db().execute(
+            "SELECT id,name FROM members WHERE id=?", (from_id,)
+        ).fetchone() if from_id.isdigit() else None
+        recipient = get_db().execute(
+            "SELECT id,name FROM members WHERE id=?", (to_id,)
+        ).fetchone() if to_id.isdigit() else None
+        actor = require_member_identity()
+        officer_ids = {row["id"] for row in get_db().execute(
+            "SELECT id FROM members WHERE discord_admin=1 OR name COLLATE NOCASE IN ({})".format(
+                ",".join("?" for _ in DISCORD_ADMIN_CHARACTERS)
+            ), DISCORD_ADMIN_CHARACTERS,
+        ).fetchall()}
+        officer_ids.add(actor["id"])
+        if (not sender or not recipient or sender["id"] == recipient["id"]
+                or sender["id"] not in officer_ids or recipient["id"] not in officer_ids
+                or not 1 <= amount_gil <= 2_000_000_000):
+            abort(400, description="Choose two different officers and enter a valid gil amount.")
+        get_db().execute(
+            """INSERT INTO ls_gil_transfers
+               (from_member_id,to_member_id,amount_gil,notes,recorded_by)
+               VALUES(?,?,?,?,?)""",
+            (sender["id"], recipient["id"], amount_gil, notes, actor["id"]),
+        )
+        get_db().execute(
+            "INSERT INTO admin_change_log(actor_member_id,area,action,details) VALUES(?,?,?,?)",
+            (actor["id"], "LS Bank", "Gil transferred",
+             f"{amount_gil:,}g / {sender['name']} to {recipient['name']}"),
+        )
+        get_db().commit()
+        flash(f"Recorded {amount_gil:,}g transfer from {sender['name']} to {recipient['name']}.", "success")
+        return redirect(url_for("endgame_dashboard", _anchor="bank"))
 
     @app.post("/endgame/bank/<int:bank_item_id>/update")
     @admin_required

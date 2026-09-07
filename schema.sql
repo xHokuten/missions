@@ -433,6 +433,22 @@ CREATE TABLE IF NOT EXISTS ls_bank_items (
 
 CREATE INDEX IF NOT EXISTS idx_ls_bank_status ON ls_bank_items(status, acquired_at DESC);
 
+CREATE TABLE IF NOT EXISTS ls_gil_transfers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_member_id INTEGER NOT NULL,
+    to_member_id INTEGER NOT NULL,
+    amount_gil INTEGER NOT NULL CHECK(amount_gil > 0),
+    notes TEXT NOT NULL DEFAULT '',
+    transferred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    recorded_by INTEGER,
+    CHECK(from_member_id <> to_member_id),
+    FOREIGN KEY (from_member_id) REFERENCES members(id) ON DELETE RESTRICT,
+    FOREIGN KEY (to_member_id) REFERENCES members(id) ON DELETE RESTRICT,
+    FOREIGN KEY (recorded_by) REFERENCES members(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ls_gil_transfers_date ON ls_gil_transfers(transferred_at DESC);
+
 CREATE TABLE IF NOT EXISTS endgame_pop_inventory (
     member_id INTEGER NOT NULL,
     item_key TEXT NOT NULL,

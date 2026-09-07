@@ -412,6 +412,36 @@ def test_ls_bank_purchases_reduce_cash_and_bulk_sale_prices_mark_items_sold(tmp_
     assert b'id="bank-held-purchased"' in page
 
 
+def test_ls_bank_records_officer_gil_transfer_separately_from_inventory(tmp_path):
+    import sqlite3
+
+    app = make_app(tmp_path)
+    client = app.test_client()
+    sign_in(client, member_id=1, admin=True)
+    database = sqlite3.connect(app.config["DATABASE"])
+    database.execute("INSERT INTO members(name,discord_admin) VALUES('TreasurerTwo',1)")
+    recipient_id = database.execute("SELECT id FROM members WHERE name='TreasurerTwo'").fetchone()[0]
+    inventory_before = database.execute("SELECT COUNT(*) FROM ls_bank_items").fetchone()[0]
+    database.commit()
+    database.close()
+
+    response = client.post("/endgame/bank/gil-transfer", data={
+        "csrf_token": "token", "from_member_id": "1", "to_member_id": str(recipient_id),
+        "amount_gil": "750000", "notes": "Treasury handoff",
+    })
+    assert response.status_code == 302
+    database = sqlite3.connect(app.config["DATABASE"])
+    assert database.execute(
+        "SELECT from_member_id,to_member_id,amount_gil,notes FROM ls_gil_transfers"
+    ).fetchone() == (1, recipient_id, 750000, "Treasury handoff")
+    assert database.execute("SELECT COUNT(*) FROM ls_bank_items").fetchone()[0] == inventory_before
+    database.close()
+    page = client.get("/endgame#bank").data
+    assert b"Add Gil Transfer" in page
+    assert b"Treasury handoff" in page
+    assert b"750,000g" in page
+
+
 def test_past_endgame_events_show_most_recent_first(tmp_path):
     app = make_app(tmp_path)
     client = app.test_client()
