@@ -54,7 +54,7 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=66" in response.data
+    assert b"endgame_dashboard.js?v=67" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
@@ -374,9 +374,15 @@ def test_ls_bank_purchases_reduce_cash_and_bulk_sale_prices_mark_items_sold(tmp_
     client = app.test_client()
     sign_in(client, member_id=1, admin=True)
     holder_id = 1
+    database = sqlite3.connect(app.config["DATABASE"])
+    database.execute("INSERT INTO members(name,discord_admin) VALUES('MemberBuyer',0)")
+    member_buyer_id = database.execute("SELECT id FROM members WHERE name='MemberBuyer'").fetchone()[0]
+    database.commit()
+    database.close()
     created = client.post("/endgame/bank", data={
         "csrf_token": "token", "item": "Timeless Hourglass", "acquisition_kind": "Auction House",
         "status": "Held", "quantity": "1", "purchase_gil": "500000", "holder_member_id": str(holder_id),
+        "purchaser_member_id": str(member_buyer_id),
     })
     assert created.status_code == 302
     database = sqlite3.connect(app.config["DATABASE"])
@@ -384,7 +390,7 @@ def test_ls_bank_purchases_reduce_cash_and_bulk_sale_prices_mark_items_sold(tmp_
     assert database.execute(
         "SELECT acquisition_kind,status,event_id,purchase_gil,purchaser_member_id FROM ls_bank_items WHERE id=?",
         (purchased_id,),
-    ).fetchone() == ("Other", "Held", None, 500000, holder_id)
+    ).fetchone() == ("Other", "Held", None, 500000, member_buyer_id)
     database.execute("INSERT INTO ls_bank_items(item,quantity,acquisition_kind,status,holder_member_id) VALUES('Behemoth Hide',1,'Event Drop','Held',?)", (holder_id,))
     held_id = database.execute("SELECT id FROM ls_bank_items WHERE item='Behemoth Hide'").fetchone()[0]
     database.commit()
