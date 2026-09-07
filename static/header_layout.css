@@ -103,6 +103,24 @@ main:has(.endgame-shell) {
   box-shadow: 0 0 0 2px #fff3a0aa, 0 0 24px #ffd22988;
 }
 
+.site-nav .donate-button {
+  margin-left: 8px;
+  border: 1px solid #58b98b;
+  background: linear-gradient(180deg, #237a59, #17543f);
+  color: #effff7;
+  padding: 7px 11px;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: 0 0 14px rgba(71, 206, 143, .2);
+}
+
+.site-nav .donate-button:hover,
+.site-nav .donate-button:focus-visible {
+  border-color: #8ff0bd;
+  background: linear-gradient(180deg, #30996f, #1d684d);
+  color: #fff;
+}
+
 .site-nav .admin-nav-link {
   color: #ff5d68;
   font-weight: 900;
@@ -262,6 +280,13 @@ main:has(.endgame-shell) {
     margin: 8px 0 0;
     padding-top: 10px;
     border-top: 1px solid #34465a;
+  }
+
+  .signed-in-header .site-nav .donate-button {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 7px 0 0;
+    text-align: center;
   }
 
   .signed-in-header .site-nav .account-button {

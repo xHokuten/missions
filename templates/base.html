@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='loot_tables.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='spawn_maps.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='spawn_markers.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='header_layout.css', v=8) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='header_layout.css', v=9) }}">
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='collapsible_save_bars.css') }}">
 </head>
@@ -34,6 +34,7 @@
       <a class="{{ 'active' if request.endpoint == 'job_roster' }}" href="{{ url_for('job_roster') }}">Job Roster</a>
       <a class="operations-nav-link {{ 'active' if request.endpoint == 'endgame_dashboard' }}" href="{{ url_for('endgame_dashboard') }}">Endgame</a>
       {% if is_editor() and current_member_id() %}<a class="operations-nav-link {{ 'active' if request.endpoint == 'alliance_builder' }}" href="{{ url_for('alliance_builder') }}">Alliance Builder</a>{% endif %}
+      <a class="button donate-button" href="https://www.paypal.com/ncp/payment/NML5WB6PTNTAE" target="_blank" rel="noopener noreferrer" title="Support Feenixed Media with a donation or tip">Donate</a>
       <form class="account-form" method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button account-button" type="submit">Sign Out ({{ current_member_name() }})</button></form>
     </nav>
     {% elif request.endpoint not in ('index', 'discord_connect') %}<a class="button account-button public-signin" href="{{ url_for('discord_connect') }}">Sign In</a>{% endif %}
