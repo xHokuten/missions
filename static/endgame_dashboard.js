@@ -322,8 +322,8 @@
     const holderLabel = bankAddHolder.closest("label");
     const selectedHolder = bankAddHolder.value;
     const selectedPurchaser = purchaser?.value || "";
-    bankAddHolder.replaceChildren(new Option(donation ? "Choose receiving officer" : "Unassigned", ""),
-      ...(donation ? bankPurchaserOfficers : bankHolderMembers).map(member => new Option(member.name, member.id)));
+    bankAddHolder.replaceChildren(new Option(donation ? "Choose holding member" : "Unassigned", ""),
+      ...bankHolderMembers.map(member => new Option(member.name, member.id)));
     bankAddHolder.value = [...bankAddHolder.options].some(option => option.value === selectedHolder) ? selectedHolder : "";
     if (purchaser) {
       purchaser.replaceChildren(new Option(donation ? "Choose donating member" : "Same as held by", ""),
@@ -331,7 +331,7 @@
       purchaser.value = [...purchaser.options].some(option => option.value === selectedPurchaser) ? selectedPurchaser : "";
       purchaser.required = donation;
     }
-    if (holderLabel?.childNodes[0]) holderLabel.childNodes[0].nodeValue = donation ? "Donated to" : "Held by";
+    if (holderLabel?.childNodes[0]) holderLabel.childNodes[0].nodeValue = "Held by";
     if (purchaserLabel?.childNodes[0]) purchaserLabel.childNodes[0].nodeValue = donation ? "Donated by" : "Purchased by";
     const purchaseLabel = purchaseInput?.closest("label");
     if (purchaseLabel?.childNodes[0]) purchaseLabel.childNodes[0].nodeValue = donation ? "Donated Gil" : (bankSource.value === "Mercenary" ? "Gil received" : "Purchase gil");
@@ -486,14 +486,14 @@
       const donation = source.value === "Donation";
       const savedHolder = form.elements.holder_member_id.value;
       const savedPurchaser = purchaser.value;
-      form.elements.holder_member_id.replaceChildren(new Option(donation ? "Choose receiving officer" : "Unassigned", ""),
-        ...(donation ? bankPurchaserOfficers : bankHolderMembers).map(member => new Option(member.name, member.id)));
+      form.elements.holder_member_id.replaceChildren(new Option(donation ? "Choose holding member" : "Unassigned", ""),
+        ...bankHolderMembers.map(member => new Option(member.name, member.id)));
       form.elements.holder_member_id.value = [...form.elements.holder_member_id.options].some(option => option.value === savedHolder) ? savedHolder : "";
       purchaser.replaceChildren(new Option(donation ? "Choose donating member" : "Same as held by", ""),
         ...(donation ? bankHolderMembers : bankPurchaserOfficers).map(member => new Option(member.name, member.id)));
       purchaser.value = [...purchaser.options].some(option => option.value === savedPurchaser) ? savedPurchaser : "";
       purchaser.required = donation;
-      holderLabel.childNodes[0].nodeValue = donation ? "Donated to" : "Held by";
+      holderLabel.childNodes[0].nodeValue = "Held by";
       purchaserLabel.childNodes[0].nodeValue = donation ? "Donated by" : "Purchased by";
       purchase.setAttribute("aria-label", donation ? "Donated Gil" : "Purchase gil");
     };
