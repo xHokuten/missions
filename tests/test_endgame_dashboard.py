@@ -54,9 +54,10 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=63" in response.data
+    assert b"endgame_dashboard.js?v=64" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
+    assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
     assert b"setInterval(loadAuctions, 5000)" in client.get("/static/endgame_dashboard.js").data
     assert b"setInterval(refresh, 5000)" in client.get("/static/header_nav.js").data
     assert response.data.count(b"data-endgame-view=") == 4
