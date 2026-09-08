@@ -12,7 +12,7 @@
   <label>Race<select id="gear-race"><option value="" {{ 'selected' if not default_race }}>All Races</option>{% for race in ('Hume Male','Hume Female','Elvaan Male','Elvaan Female','Tarutaru Male','Tarutaru Female','Mithra','Galka') %}<option value="{{ race }}" {{ 'selected' if race == default_race }}>{{ race }}</option>{% endfor %}</select></label>
   <label>Primary stat<select id="gear-primary-stat">{% for stat in gear_stats|sort %}<option value="{{ stat }}" {{ 'selected' if stat == 'Accuracy' }}>{{ stat }}</option>{% endfor %}</select></label>
   <label>Secondary stat<select id="gear-secondary-stat"><option value="" selected>None</option>{% for stat in gear_stats|sort %}<option value="{{ stat }}">{{ stat }}</option>{% endfor %}</select></label>
-  <label class="gear-owned-stat-filter"><input id="gear-negative" type="checkbox"> Negative</label>
+  <label class="gear-owned-stat-filter"><input id="gear-negative" type="checkbox"> Negative</label><label class="gear-owned-stat-filter"><input id="gear-conditional-effects" type="checkbox"> Include conditional effects</label>
   <label>Optimize from<select id="gear-scope"><option value="all">All available gear</option><option value="owned">My imported gear</option></select></label>
 </section>
 
@@ -71,5 +71,5 @@ window.GEAR_OPTIMIZER={{ {
   'csrf': csrf_token()
 }|tojson }};
 </script>
-<script src="{{ url_for('static', filename='gear_optimizer.js', v=23) }}"></script>
+<script src="{{ url_for('static', filename='gear_optimizer.js', v=24) }}"></script>
 {% endblock %}

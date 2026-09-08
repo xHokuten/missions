@@ -10,7 +10,7 @@ from build_gear_catalog import (
     lsb_item_stats,
     parse_level_scaling,
 )
-from missions import create_app, normalize_horizon_item, parse_gear_stats
+from missions import create_app, normalize_horizon_item, parse_gear_conditional_stats, parse_gear_stats
 
 
 def gear_app(tmp_path):
@@ -52,6 +52,12 @@ def test_parse_gear_stats_ignores_conditional_suffixes():
         "DEF:12 STR+3 DEX-1 Accuracy+5 Haste+2% Latent effect: Attack+20"
     )
     assert stats == {"DEF": 12, "STR": 3, "DEX": -1, "Accuracy": 5, "Haste": 2}
+
+
+def test_parse_gear_conditional_stats_supports_nighttime_and_latent_effects():
+    assert parse_gear_conditional_stats(
+        "DEF:29 HP+15 Nighttime: Evasion+10 Latent effect: Attack+20"
+    ) == {"Evasion": 10, "Attack": 20}
 
 
 def test_parse_gear_stats_supports_elemental_resistance():
@@ -261,7 +267,8 @@ def test_gear_optimizer_uses_catalog_without_loading_character_equipment(monkeyp
     assert page_text.index('value="Accuracy"') < page_text.index('value="Attack"')
     assert page_text.index('value="Attack"') < page_text.index('value="Avatar Perpetuation Cost"')
     assert b"gear_select.css?v=1" in page.data
-    assert b"gear_optimizer.js?v=23" in page.data
+    assert b'id="gear-conditional-effects"' in page.data
+    assert b"gear_optimizer.js?v=24" in page.data
     assert b"Gear value" in page.data
     assert b'id="gear-liquid-value"' in page.data
     assert b"Owned Gear" not in page.data
@@ -274,6 +281,7 @@ def test_gear_optimizer_uses_catalog_without_loading_character_equipment(monkeyp
     assert b"if (item.rare) return false" in optimizer_script
     assert b"copiesAlreadyUsed < (ownedCounts.get" in optimizer_script
     assert b"Object.entries(item.level_scaling || {})" in optimizer_script
+    assert b"Object.entries(item.latent_stats || {})" in optimizer_script
     assert b'mainBlocksSub = slot === "sub"' in optimizer_script
     assert b'item.two_handed) equipmentSet.sub = null' in optimizer_script
     assert b'id="gear-active-search"' in page.data
