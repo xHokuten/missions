@@ -592,21 +592,33 @@
   const xmlEscape = value => String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&apos;");
   const luaEscape = value => String(value).replace(/\\/g, "\\\\").replace(/\"/g, '\\"');
   let copyStatusTimer;
+  const legacyClipboardCopy = contents => {
+    const textarea = document.createElement("textarea");
+    textarea.value = contents;
+    textarea.setAttribute("readonly", "");
+    textarea.setAttribute("aria-hidden", "true");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    document.body.append(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    if (!copied) throw new Error("Legacy clipboard copy failed");
+  };
   const copyExport = async (contents, format) => {
     const status = document.querySelector("#gear-copy-status");
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(contents);
+        try {
+          await navigator.clipboard.writeText(contents);
+        } catch (_clipboardError) {
+          legacyClipboardCopy(contents);
+        }
       } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = contents;
-        textarea.setAttribute("readonly", "");
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.append(textarea);
-        textarea.select();
-        if (!document.execCommand("copy")) throw new Error("Copy failed");
-        textarea.remove();
+        legacyClipboardCopy(contents);
       }
       status.textContent = `${format} copied!`;
     } catch (_error) {
