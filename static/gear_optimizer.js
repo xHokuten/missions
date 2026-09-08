@@ -11,6 +11,7 @@
   const primaryControl = document.querySelector("#gear-primary-stat");
   const secondaryControl = document.querySelector("#gear-secondary-stat");
   const negativeControl = document.querySelector("#gear-negative");
+  const conditionalEffectsControl = document.querySelector("#gear-conditional-effects");
   const raceControl = document.querySelector("#gear-race");
   const scopeControl = document.querySelector("#gear-scope");
   const activeSearchControl = document.querySelector("#gear-active-search");
@@ -162,6 +163,11 @@
   const itemStats = item => {
     if (!item) return {};
     const stats = { ...(item.stats || {}) };
+    if (conditionalEffectsControl.checked) {
+      Object.entries(item.latent_stats || {}).forEach(([stat, value]) => {
+        stats[stat] = Number(stats[stat] || 0) + Number(value || 0);
+      });
+    }
     Object.entries(item.level_scaling || {}).forEach(([stat, range]) => {
       const minimumLevel = Number(range.min_level || item.level || 1);
       const maximumLevel = Number(range.max_level || 75);
@@ -461,7 +467,7 @@
     setInitialized = false;
     refresh();
   };
-  [jobControl, levelControl, raceControl, primaryControl, secondaryControl, negativeControl, scopeControl]
+  [jobControl, levelControl, raceControl, primaryControl, secondaryControl, negativeControl, conditionalEffectsControl, scopeControl]
     .forEach(control => control.addEventListener("change", rebuildFromFilters));
 
   document.querySelector("#gear-collapse-set").addEventListener("click", event => {

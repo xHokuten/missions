@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from missions import GEAR_STAT_ALIASES, parse_gear_stats
+from missions import GEAR_STAT_ALIASES, parse_gear_conditional_stats, parse_gear_stats
 
 ITEMS_SOURCE = "https://raw.githubusercontent.com/Windower/Resources/master/resources_data/items.lua"
 DESCRIPTIONS_SOURCE = "https://raw.githubusercontent.com/Windower/Resources/master/resources_data/item_descriptions.lua"
@@ -194,8 +194,9 @@ def build(items_lua: str, descriptions_lua: str, keys: dict[int, str],
             description = description.replace(glyph, label)
         parsed_stats = parse_gear_stats(description)
         parsed_stats.update(item_mod_stats.get(item_id, {}))
-        latent_stats = item_latent_stats.get(item_id, {})
-        parsed_stats.update(latent_stats)
+        latent_stats = parse_gear_conditional_stats(description)
+        for stat, value in item_latent_stats.get(item_id, {}).items():
+            latent_stats[stat] = latent_stats.get(stat, 0) + value
         rows.append({
             "item_id": item_id,
             "item_key": keys.get(item_id, ""),
@@ -215,7 +216,7 @@ def build(items_lua: str, descriptions_lua: str, keys: dict[int, str],
             "level_scaling": parse_level_scaling(description, level),
         })
     rows.sort(key=lambda item: (item["level"], item["name"].casefold(), item["item_id"]))
-    stats = sorted({stat for item in rows for stat in item["stats"]})
+    stats = sorted({stat for item in rows for field in ("stats", "latent_stats") for stat in item[field]})
     return {
         "era": "Original through Treasures of Aht Urhgan; level cap 75",
         "items_source": ITEMS_SOURCE,

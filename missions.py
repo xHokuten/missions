@@ -437,6 +437,20 @@ def parse_gear_stats(description):
     return stats
 
 
+def parse_gear_conditional_stats(description):
+    """Extract stats that only apply under a named condition."""
+    text = " ".join(
+        str(description or "").replace("\n", " ").replace('"', "")
+        .replace("â€œ", "").replace("â€", "").split()
+    )
+    marker = r"\b(?:Latent effect|Set|Assault|Salvage|Campaign|Besieged|Daytime|Nighttime):"
+    match = re.search(marker, text, flags=re.IGNORECASE)
+    if not match:
+        return {}
+    conditional = re.sub(marker, " ", text[match.start():], flags=re.IGNORECASE)
+    return parse_gear_stats(conditional)
+
+
 def normalize_horizon_item(item_id, metadata, *, key=""):
     sprite = metadata.get("sprite") or metadata
     description = sprite.get("description") or metadata.get("desc") or ""
