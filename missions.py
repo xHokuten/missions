@@ -1229,7 +1229,6 @@ def create_app(test_config=None):
             "scope": "identify guilds.members.read",
             "state": state,
             "redirect_uri": redirect_uri,
-            "prompt": "consent",
         })
         return redirect(f"https://discord.com/oauth2/authorize?{query}")
 

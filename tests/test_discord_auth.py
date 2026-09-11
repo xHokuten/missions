@@ -27,6 +27,7 @@ def begin_discord_login(client):
     assert response.status_code == 302
     query = parse_qs(urlparse(response.location).query)
     assert query["scope"] == ["identify guilds.members.read"]
+    assert "prompt" not in query
     return query["state"][0]
 
 

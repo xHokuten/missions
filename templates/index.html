@@ -1,23 +1,23 @@
 {% extends 'base.html' %}
-{% block head %}{% if not is_editor() %}<link rel="preload" as="image" href="{{ url_for('static', filename='landing/tulia-pencil.png') }}" fetchpriority="high">{% endif %}{% endblock %}
+{% block head %}{% if not is_editor() %}<link rel="preload" as="image" href="{{ url_for('static', filename='landing/tulia-pencil.webp') }}" type="image/webp" fetchpriority="high">{% endif %}{% endblock %}
 {% block content %}
 {% if not is_editor() %}
 <link rel="stylesheet" href="{{ url_for('static', filename='public_landing.css', v=2) }}"><link rel="stylesheet" href="{{ url_for('static', filename='public_landing_controls.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='public_landing_alignment.css', v=3) }}">
 <section class="public-landing" aria-label="Hokuten Knights linkshell welcome">
   <div class="landing-scenes" aria-hidden="true">
-    <div class="landing-scene active initial" data-name="The Celestial Ruins" style="--scene:url('{{ url_for('static', filename='landing/tulia-pencil.png') }}')"></div>
-    <div class="landing-scene" data-name="Valkurm Dunes" data-scene-url="{{ url_for('static', filename='landing/valkurm-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="The Celestial Sea" data-scene-url="{{ url_for('static', filename='landing/altaieu-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Ronfaure" data-scene-url="{{ url_for('static', filename='landing/ronfaure-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Jeuno" data-scene-url="{{ url_for('static', filename='landing/jeuno-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Xarcabard" data-scene-url="{{ url_for('static', filename='landing/xarcabard-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Kazham" data-scene-url="{{ url_for('static', filename='landing/kazham-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Norg" data-scene-url="{{ url_for('static', filename='landing/norg-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="The Sanctuary of Zi'Tah" data-scene-url="{{ url_for('static', filename='landing/zitah-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Tavnazia" data-scene-url="{{ url_for('static', filename='landing/tavnazia-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Selbina" data-scene-url="{{ url_for('static', filename='landing/selbina-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="The Boyahda Tree" data-scene-url="{{ url_for('static', filename='landing/boyahda-pencil.png') }}"></div>
-    <div class="landing-scene" data-name="Delkfutt's Tower" data-scene-url="{{ url_for('static', filename='landing/delkfutt-pencil.png') }}"></div>
+    <div class="landing-scene active initial" data-name="The Celestial Ruins" style="--scene:url('{{ url_for('static', filename='landing/tulia-pencil.webp') }}')"></div>
+    <div class="landing-scene" data-name="Valkurm Dunes" data-scene-url="{{ url_for('static', filename='landing/valkurm-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="The Celestial Sea" data-scene-url="{{ url_for('static', filename='landing/altaieu-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Ronfaure" data-scene-url="{{ url_for('static', filename='landing/ronfaure-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Jeuno" data-scene-url="{{ url_for('static', filename='landing/jeuno-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Xarcabard" data-scene-url="{{ url_for('static', filename='landing/xarcabard-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Kazham" data-scene-url="{{ url_for('static', filename='landing/kazham-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Norg" data-scene-url="{{ url_for('static', filename='landing/norg-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="The Sanctuary of Zi'Tah" data-scene-url="{{ url_for('static', filename='landing/zitah-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Tavnazia" data-scene-url="{{ url_for('static', filename='landing/tavnazia-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Selbina" data-scene-url="{{ url_for('static', filename='landing/selbina-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="The Boyahda Tree" data-scene-url="{{ url_for('static', filename='landing/boyahda-pencil.webp') }}"></div>
+    <div class="landing-scene" data-name="Delkfutt's Tower" data-scene-url="{{ url_for('static', filename='landing/delkfutt-pencil.webp') }}"></div>
   </div>
   <div class="landing-blue-wash" aria-hidden="true"></div><div class="landing-pencil-pass" aria-hidden="true"></div>
   <div class="landing-copy"><p class="landing-kicker">A HorizonXI Linkshell</p><h1>Adventure is better<br>when shared.</h1><p>Mission progress, event planning, and linkshell support—built for the journey ahead.</p></div>

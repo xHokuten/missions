@@ -95,6 +95,7 @@ def test_header_uses_single_yellow_account_control(tmp_path):
     assert b'class="site-nav"' not in signed_out.data
     assert b'class="brand"' not in signed_out.data
     assert signed_out.data.count(b'data-name="') == 13
+    assert b"landing/tulia-pencil.webp" in signed_out.data
     assert b'class="landing-script">Hokuten Knights' in signed_out.data
     assert b"public_landing.js" in signed_out.data
     assert b"Enter the Linkshell" not in signed_out.data
