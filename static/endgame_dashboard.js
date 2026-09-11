@@ -1214,22 +1214,16 @@
     const recent = document.querySelector("#recent-auction-bids");
     recent.innerHTML = payload.recent_bids.length ? payload.recent_bids.map(bid => `<article><span><b>${safeText(bid.name)}</b> bid on ${safeText(bid.item)}<small>${safeText(bid.boss)} · ${safeText(bid.job)} · ${safeText(activityTimestamp(bid.updated_at))}</small></span><strong>${bid.amount} DKP</strong></article>`).join("") : '<p class="event-empty">No bids have been placed.</p>';
   };
-  const loadAuctions = async () => {
+  const updateAuctions = payload => {
     if (!auctionRoot) return;
     if (auctionEditing()) return;
-    try {
-      const response = await fetch("/api/endgame/auctions", {headers: {"Accept": "application/json"}});
-      if (!response.ok) throw new Error("Could not refresh bidding.");
-      const payload = await response.json();
-      if (auctionEditing()) return;
-      renderAuctions(payload);
-      const auctionAnchor = location.hash.slice(1);
-      if (auctionAnchor.startsWith("auction-")) {
-        requestAnimationFrame(() => document.getElementById(auctionAnchor)?.scrollIntoView({behavior: "smooth", block: "start"}));
-      }
-      const state = document.querySelector("#auction-refresh-state");
-      if (state) state.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"})}`;
-    } catch (error) { auctionRoot.innerHTML = auctionError(error.message); }
+    renderAuctions(payload);
+    const auctionAnchor = location.hash.slice(1);
+    if (auctionAnchor.startsWith("auction-")) {
+      requestAnimationFrame(() => document.getElementById(auctionAnchor)?.scrollIntoView({behavior: "smooth", block: "start"}));
+    }
+    const state = document.querySelector("#auction-refresh-state");
+    if (state) state.textContent = `Updated ${new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"})}`;
   };
   document.addEventListener("submit", async event => {
     const form = event.target.closest(".auction-bid-form");
@@ -1251,8 +1245,10 @@
       if (event.target.closest(".auction-bid-form")) auctionEditingUntil = Date.now() + 15000;
       if (event.target.closest(".auction-winner-select")) auctionEditingUntil = Date.now() + 600000;
     });
-    loadAuctions();
-    setInterval(loadAuctions, 5000);
+    window.addEventListener("endgame:auctions-updated", event => updateAuctions(event.detail));
+    window.EndgameAuctionPolling.requireDetails();
+    if (window.EndgameAuctionPolling.payload) updateAuctions(window.EndgameAuctionPolling.payload);
+    window.EndgameAuctionPolling.start();
     setInterval(() => document.querySelectorAll("[data-auction-ends]").forEach(clock => { if (clock.dataset.auctionPaused !== "true") clock.textContent = countdownText(clock.dataset.auctionEnds); }), 1000);
   }
   const auctionTooltip = document.querySelector("#auction-item-tooltip");

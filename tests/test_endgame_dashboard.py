@@ -54,12 +54,19 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     sign_in(client, admin=True)
     response = client.get("/endgame")
     assert response.status_code == 200
-    assert b"endgame_dashboard.js?v=72" in response.data
+    assert b"endgame_dashboard.js?v=73" in response.data
     assert b".loot-history-table .loot-dkp-link" in client.get("/static/endgame_dashboard.css").data
     assert b"dkp-breakdown-popover" in client.get("/static/endgame_dashboard.js").data
     assert b"table-dkp-breakdown-trigger" in client.get("/static/endgame_dashboard.js").data
-    assert b"setInterval(loadAuctions, 5000)" in client.get("/static/endgame_dashboard.js").data
-    assert b"setInterval(refresh, 5000)" in client.get("/static/header_nav.js").data
+    polling = client.get("/static/auction_polling.js").data
+    assert b"LIVE_INTERVAL = 5000" in polling
+    assert b"IDLE_INTERVAL" not in polling
+    assert b"if (hasLiveAuction(payload))" in polling
+    assert b'"/api/endgame/auction-status"' in polling
+    assert b"requireDetails()" in polling
+    assert b'document.addEventListener("visibilitychange"' in polling
+    assert b"setInterval(loadAuctions, 5000)" not in client.get("/static/endgame_dashboard.js").data
+    assert b"setInterval(refresh, 5000)" not in client.get("/static/header_nav.js").data
     assert response.data.count(b"data-endgame-view=") == 4
     for view in (b">Calendar</button>", b">DKP/Loot</button>", b">LS Bank</button>", b">Operations</button>"):
         assert view in response.data
@@ -1552,6 +1559,11 @@ def test_live_dkp_auction_records_winner_and_deducts_balance(tmp_path):
         "csrf_token": "token", "event_id": str(event_id), "boss": "Jailer of Love", "duration_minutes": "5",
     })
     assert started.status_code == 302
+    status_payload = client.get("/api/endgame/auction-status").get_json()
+    assert status_payload == {"auctions": [{
+        "id": status_payload["auctions"][0]["id"], "boss": "Jailer of Love",
+        "ends_at": status_payload["auctions"][0]["ends_at"], "paused": False, "status": "Active",
+    }]}
     payload = client.get("/api/endgame/auctions").get_json()
     assert payload["my_balance"] == 6
     assert payload["auctions"][0]["boss"] == "Jailer of Love"

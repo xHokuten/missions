@@ -3910,6 +3910,21 @@ def create_app(test_config=None):
     def get_endgame_auctions():
         return jsonify(auction_payload())
 
+    @app.get("/api/endgame/auction-status")
+    @editor_required
+    def get_endgame_auction_status():
+        refresh_auction_statuses()
+        row = get_db().execute(
+            """SELECT id,boss,ends_at,paused_at FROM endgame_auctions
+               WHERE status='Active' ORDER BY id DESC LIMIT 1"""
+        ).fetchone()
+        if not row:
+            return jsonify({"auctions": []})
+        auction = dict(row)
+        auction["status"] = "Active"
+        auction["paused"] = bool(auction.pop("paused_at"))
+        return jsonify({"auctions": [auction]})
+
     def endgame_pop_inventory_payload():
         rows = get_db().execute(
             """SELECT m.name,i.item_key,i.quantity FROM endgame_pop_inventory i

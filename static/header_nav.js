@@ -44,17 +44,13 @@
     timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
     banner.hidden = false;
   };
-  const refresh = async () => {
-    try {
-      const response = await fetch("/api/endgame/auctions", {headers: {Accept: "application/json"}});
-      if (!response.ok) return;
-      const payload = await response.json();
-      activeAuction = payload.auctions?.find(auction => auction.status === "Active" && !auction.paused) || null;
-      banner.hidden = !activeAuction;
-      render();
-    } catch (_) { banner.hidden = true; }
+  const update = payload => {
+    activeAuction = payload.auctions?.find(auction => auction.status === "Active" && !auction.paused) || null;
+    banner.hidden = !activeAuction;
+    render();
   };
-  refresh();
-  setInterval(refresh, 5000);
+  window.addEventListener("endgame:auctions-updated", event => update(event.detail));
+  if (window.EndgameAuctionPolling.payload) update(window.EndgameAuctionPolling.payload);
+  window.EndgameAuctionPolling.start();
   setInterval(render, 1000);
 })();
