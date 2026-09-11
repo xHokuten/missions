@@ -1,0 +1,15 @@
+[Unit]
+Description=Clamp container TCP MSS for the public website
+After=network-online.target
+Wants=network-online.target
+Before=reverse-proxy.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/sbin/nft delete table inet website_mss_clamp
+ExecStart=/usr/sbin/nft -f /etc/website-mss-clamp.nft
+ExecStop=-/usr/sbin/nft delete table inet website_mss_clamp
+
+[Install]
+WantedBy=multi-user.target

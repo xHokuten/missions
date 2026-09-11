@@ -1,0 +1,6 @@
+table inet website_mss_clamp {
+    chain forward {
+        type filter hook forward priority mangle; policy accept;
+        oifname "eth0" tcp flags syn tcp option maxseg size set 1200
+    }
+}
