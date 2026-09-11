@@ -26,7 +26,8 @@ def begin_discord_login(client):
     response = client.post("/discord/login", data={"csrf_token": csrf})
     assert response.status_code == 302
     query = parse_qs(urlparse(response.location).query)
-    assert query["scope"] == ["identify guilds.members.read"]
+    expected_scope = "identify" if client.application.config.get("DISCORD_BOT_TOKEN") else "identify guilds.members.read"
+    assert query["scope"] == [expected_scope]
     assert "prompt" not in query
     return query["state"][0]
 
@@ -159,27 +160,29 @@ def test_display_name_is_used_when_server_nickname_is_missing(monkeypatch, tmp_p
         assert session["is_admin"] is False
 
 
-def test_bot_membership_lookup_falls_back_when_oauth_member_lookup_fails(monkeypatch, tmp_path):
+def test_configured_bot_verifies_membership_without_extra_oauth_request(monkeypatch, tmp_path):
     app = discord_app(tmp_path)
     app.config["DISCORD_BOT_TOKEN"] = "bot-token"
     client = app.test_client()
     state = begin_discord_login(client)
     monkeypatch.setattr(missions, "discord_exchange_code", lambda *_args: {"access_token": "token"})
+    oauth_calls = []
     monkeypatch.setattr(
         missions, "discord_get",
-        lambda _token, path: {"id": "discord-fallback", "username": "user", "global_name": "Sexualpotato"}
-        if path == "/users/@me" else (_ for _ in ()).throw(ValueError("member lookup unavailable")),
+        lambda _token, path: oauth_calls.append(path) or
+        {"id": "discord-fallback", "username": "user", "global_name": "Sexualpotato"},
     )
     bot_calls = []
     monkeypatch.setattr(
         missions, "discord_bot_request",
-        lambda token, method, path: bot_calls.append((token, method, path)) or {"nick": "Sexualpotato"},
+        lambda token, method, path, timeout=20: bot_calls.append((token, method, path, timeout)) or {"nick": "Sexualpotato"},
     )
 
     response = client.get(f"/discord/callback?code=valid&state={state}")
     assert response.status_code == 302
+    assert oauth_calls == ["/users/@me"]
     assert bot_calls == [
-        ("bot-token", "GET", "/guilds/hokuten-guild/members/discord-fallback")
+        ("bot-token", "GET", "/guilds/hokuten-guild/members/discord-fallback", 8)
     ]
     with client.session_transaction() as session:
         assert session["is_editor"] is True

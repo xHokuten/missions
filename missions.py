@@ -158,7 +158,7 @@ AUCTION_TOOLTIP_OVERRIDES = {
 ENDGAME_MINIMUM_BID_CAP = 20
 
 
-def discord_bot_request(bot_token, method, path, payload=None):
+def discord_bot_request(bot_token, method, path, payload=None, timeout=20):
     """Call Discord's bot REST API and decode its JSON response."""
     body = json.dumps(payload).encode("utf-8") if payload is not None else None
     api_request = Request(
@@ -169,7 +169,7 @@ def discord_bot_request(bot_token, method, path, payload=None):
             "User-Agent": "DiscordBot (https://hokutenknights.com, 1.0)",
         },
     )
-    with urlopen(api_request, timeout=20) as response:
+    with urlopen(api_request, timeout=timeout) as response:
         raw = response.read()
     return json.loads(raw.decode("utf-8")) if raw else None
 
@@ -972,7 +972,7 @@ def discord_exchange_code(client_id, client_secret, code, redirect_uri):
         headers={"Content-Type": "application/x-www-form-urlencoded",
                  "User-Agent": "HokutenKnightsDashboard/1.0"},
     )
-    with urlopen(oauth_request, timeout=20) as response:
+    with urlopen(oauth_request, timeout=8) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -982,7 +982,7 @@ def discord_get(access_token, path):
         headers={"Authorization": f"Bearer {access_token}",
                  "User-Agent": "HokutenKnightsDashboard/1.0"},
     )
-    with urlopen(api_request, timeout=20) as response:
+    with urlopen(api_request, timeout=8) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -1226,7 +1226,7 @@ def create_app(test_config=None):
         query = urlencode({
             "response_type": "code",
             "client_id": app.config["DISCORD_CLIENT_ID"],
-            "scope": "identify guilds.members.read",
+            "scope": "identify" if app.config.get("DISCORD_BOT_TOKEN") else "identify guilds.members.read",
             "state": state,
             "redirect_uri": redirect_uri,
         })
@@ -1258,7 +1258,7 @@ def create_app(test_config=None):
                 "error",
             )
             return redirect(url_for("discord_connect"))
-        except (URLError, KeyError, ValueError, json.JSONDecodeError) as error:
+        except (URLError, KeyError, ValueError, json.JSONDecodeError, TimeoutError) as error:
             error_kind = type(error).__name__
             app.logger.warning("Discord account verification failed: %s", error_kind)
             flash(
@@ -1269,23 +1269,23 @@ def create_app(test_config=None):
             return redirect(url_for("discord_connect"))
 
         try:
-            guild_member = discord_get(
-                access_token,
-                f"/users/@me/guilds/{app.config['DISCORD_GUILD_ID']}/member",
-            )
-        except (HTTPError, URLError, KeyError, ValueError, json.JSONDecodeError):
             bot_token = app.config.get("DISCORD_BOT_TOKEN", "")
-            if not bot_token:
-                flash("Discord could not verify your Hokuten membership. Make sure you joined the server and try again.", "error")
-                return redirect(url_for("discord_connect"))
-            try:
+            if bot_token:
+                # Production already has a guild bot, so avoid the additional
+                # OAuth membership request and its potentially slow fallback.
                 guild_member = discord_bot_request(
                     bot_token, "GET",
                     f"/guilds/{app.config['DISCORD_GUILD_ID']}/members/{discord_user['id']}",
+                    timeout=8,
                 )
-            except (HTTPError, URLError, KeyError, ValueError, json.JSONDecodeError):
-                flash("Discord could not verify your Hokuten membership. Make sure you joined the server and try again.", "error")
-                return redirect(url_for("discord_connect"))
+            else:
+                guild_member = discord_get(
+                    access_token,
+                    f"/users/@me/guilds/{app.config['DISCORD_GUILD_ID']}/member",
+                )
+        except (HTTPError, URLError, KeyError, ValueError, json.JSONDecodeError, TimeoutError):
+            flash("Discord could not verify your Hokuten membership. Make sure you joined the server and try again.", "error")
+            return redirect(url_for("discord_connect"))
 
         discord_user_id = str(discord_user.get("id", ""))
         nickname = (
