@@ -87,6 +87,7 @@ def test_header_uses_single_yellow_account_control(tmp_path):
                       "SECRET_KEY": "test", "AUTH_DISABLED": False})
     client = app.test_client()
     signed_out = client.get("/")
+    assert b'rel="stylesheet" media="print" onload="this.media=\'all\'"' in signed_out.data
     assert b'class="button account-button public-signin"' not in signed_out.data
     assert b'class="landing-discord-signin"' in signed_out.data
     assert b"Sign in with Discord</a>" in signed_out.data
