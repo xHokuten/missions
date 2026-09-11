@@ -1010,6 +1010,8 @@ def create_app(test_config=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "").lower() in {"1", "true", "yes"},
+        PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+        SESSION_REFRESH_EACH_REQUEST=True,
     )
     if test_config:
         app.config.update(test_config)
@@ -1374,6 +1376,7 @@ def create_app(test_config=None):
         session["is_editor"] = True
         session["is_admin"] = is_discord_admin
         session["member_id"] = member["id"]
+        session.permanent = True
         csrf_token()
         if created:
             flash(f"Welcome, {member['name']}! Your roster entry was created. Add your jobs and progress.", "success")

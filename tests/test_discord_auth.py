@@ -105,6 +105,7 @@ def test_new_discord_nickname_creates_and_signs_in_character(monkeypatch, tmp_pa
     mock_discord(monkeypatch, "Newhero", "discord-456")
     response = client.get(f"/discord/callback?code=valid&state={state}")
     assert response.status_code == 302 and "/members/" in response.location
+    assert "Expires=" in response.headers["Set-Cookie"]
     database = sqlite3.connect(app.config["DATABASE"])
     member = database.execute(
         "SELECT id,discord_user_id FROM members WHERE name='Newhero'"
@@ -115,6 +116,7 @@ def test_new_discord_nickname_creates_and_signs_in_character(monkeypatch, tmp_pa
         assert session["member_id"] == member[0]
         assert session["is_editor"] is True
         assert session["is_admin"] is False
+        assert session.permanent is True
 
 
 def test_existing_non_admin_character_is_linked_without_admin(monkeypatch, tmp_path):
