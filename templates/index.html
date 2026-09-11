@@ -25,7 +25,7 @@
     <div class="landing-location show" id="landing-location">The Celestial Ruins</div>
     <div class="soundtrack-credit">We Depart For Distant Shores — iMaven</div>
     <div class="soundtrack-controls"><button type="button" id="soundtrack-toggle" aria-label="Play We Depart For Distant Shores">▶</button><label for="soundtrack-volume">Volume</label><input id="soundtrack-volume" type="range" min="0" max="1" step="0.01" value="0.35"><a class="landing-discord-signin" href="{{ url_for('discord_connect') }}"><span aria-hidden="true">◉</span> Sign in with Discord</a></div>
-    <audio id="landing-audio" loop preload="auto"><source src="{{ url_for('static', filename='landing/we-depart-for-distant-shores.mp3') }}" type="audio/mpeg"></audio>
+    <audio id="landing-audio" loop preload="none"><source src="{{ url_for('static', filename='landing/we-depart-for-distant-shores.mp3') }}" type="audio/mpeg"></audio>
   </div>
   <div class="landing-script">Hokuten Knights</div>
 </section>

@@ -102,6 +102,9 @@ def test_header_uses_single_yellow_account_control(tmp_path):
     landing_script = client.get("/static/public_landing.js")
     assert b"audio.duration/scenes.length" in landing_script.data
     assert b'id="landing-audio"' in signed_out.data
+    assert b'preload="none"' in signed_out.data
+    assert b"auction_polling.js" not in signed_out.data
+    assert b"help_board.css" not in signed_out.data
     assert b'id="soundtrack-volume"' in signed_out.data
     assert b"We Depart For Distant Shores" in signed_out.data
     assert client.get("/static/landing/we-depart-for-distant-shores.mp3").status_code == 200

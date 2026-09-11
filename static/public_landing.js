@@ -9,12 +9,15 @@
 
   let current=0;
   let syncFrame=0;
+  let preloadStarted=false;
   const hydrateScene=scene=>{
     if(!scene.dataset.sceneUrl)return;
     scene.style.setProperty('--scene',`url("${scene.dataset.sceneUrl}")`);
     delete scene.dataset.sceneUrl;
   };
   const preloadScenes=()=>{
+    if(preloadStarted)return;
+    preloadStarted=true;
     const pending=scenes.slice(1);
     const loadNext=()=>{
       const scene=pending.shift();
@@ -28,9 +31,6 @@
     };
     loadNext();
   };
-  if('requestIdleCallback' in window)requestIdleCallback(preloadScenes,{timeout:1500});
-  else addEventListener('load',preloadScenes,{once:true});
-
   const showScene=index=>{
     if(index===current)return;
     const previous=scenes[current];
@@ -69,6 +69,7 @@
     toggle.addEventListener('click',async()=>{
       if(audio.paused){
         try{
+          preloadScenes();
           await audio.play();
           toggle.textContent='❚❚';
           toggle.setAttribute('aria-label','Pause We Depart For Distant Shores');

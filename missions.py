@@ -1963,6 +1963,12 @@ def create_app(test_config=None):
 
     @app.route("/")
     def index():
+        # The signed-out landing page does not use any roster data.  Returning it
+        # before opening SQLite keeps the first request cheap, which matters most
+        # when a container has just cold-started.
+        if not is_editor():
+            return render_template("index.html")
+
         filters = {
             "campaign": request.args.get("campaign", "").upper(),
             "mission": request.args.get("mission", "").strip(),
