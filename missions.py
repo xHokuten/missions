@@ -348,6 +348,13 @@ def horizon_json(path, timeout=20):
         return json.load(response)
 
 
+def blue_magic_point_limit(level, learned_count=0):
+    """Return HorizonXI's level allowance plus its built-in Assimilation bonus."""
+    base_points = 10 + ((level - 1) // 10) * 5
+    assimilation_bonus = min(5, max(0, (learned_count - 41) // 10))
+    return base_points + assimilation_bonus
+
+
 def compact_market_snapshot(payload):
     """Reduce the PSXI bulk response to the fields used by loot-table price cells."""
     prices = {}
@@ -5750,12 +5757,15 @@ def create_app(test_config=None):
         spells = list(dict.fromkeys(request.form.getlist("spells")))
         if any(spell not in spell_levels or spell_levels[spell] > blue_level for spell in spells):
             abort(400, description="The template contains a spell unavailable at that level.")
-        point_limit = 10 + ((blue_level - 1) // 10) * 5
+        db = get_db()
+        learned_count = db.execute(
+            "SELECT COUNT(*) FROM blue_spell_ownership WHERE member_id=?", (member["id"],)
+        ).fetchone()[0]
+        point_limit = blue_magic_point_limit(blue_level, learned_count)
         slot_limit = min(20, 6 + ((blue_level - 1) // 10) * 2)
         if len(spells) > slot_limit or sum(spell_costs[spell] for spell in spells) > point_limit:
             abort(400, description="The template exceeds the spell-slot or Blue Magic point limit.")
         template_id = request.form.get("template_id", "")
-        db = get_db()
         if template_id.isdigit():
             existing = db.execute(
                 "SELECT id FROM blue_spell_templates WHERE id=? AND owner_member_id=?",

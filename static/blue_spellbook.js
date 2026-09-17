@@ -15,7 +15,8 @@
   const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[character]);
-  const pointLimit = value => 10 + Math.floor((value - 1) / 10) * 5;
+  const assimilationBonus = () => Math.min(5, Math.max(0, Math.floor((learned.size - 41) / 10)));
+  const pointLimit = value => 10 + Math.floor((value - 1) / 10) * 5 + assimilationBonus();
   const slotLimit = value => Math.min(20, 6 + Math.floor((value - 1) / 10) * 2);
   const level = () => Math.min(75, Math.max(1, Number(levelInput.value) || 75));
   const contribution = spell => !spell.trait ? 0 : spell.trait === "Auto Refresh"

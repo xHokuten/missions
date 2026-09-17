@@ -6,7 +6,15 @@ from build_blue_spell_farming import (
     HORIZON_SPELL_CARD_SOURCE, blue_magic_cap, build, parse_blue_metadata, parse_combat_metadata,
     parse_magic_element, parse_physical_damage_type, parse_spell_description, parse_spell_effects,
 )
-from missions import create_app
+from missions import blue_magic_point_limit, create_app
+
+
+def test_horizon_blue_magic_point_limits_include_learned_spell_bonus():
+    assert blue_magic_point_limit(64, 50) == 40
+    assert blue_magic_point_limit(64, 51) == 41
+    assert blue_magic_point_limit(64, 60) == 41
+    assert blue_magic_point_limit(64, 61) == 42
+    assert blue_magic_point_limit(75, 91) == 50
 
 
 def test_blue_magic_skill_threshold_uses_level_75_cap():
