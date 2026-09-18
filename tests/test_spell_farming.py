@@ -326,6 +326,10 @@ def test_spellbook_saves_a_private_named_template(tmp_path):
     assert b'event.preventDefault()' in builder_script
     assert b'equipped.delete(remove.dataset.remove)' in builder_script
     assert builder_script.index(b'if (remove)') < builder_script.index(b'const view =')
+    assert b'learned.size} learned' in builder_script
+    farming_script = client.get("/static/spell_farming.js").data
+    assert b'if (!hasUnsavedChanges) return' in farming_script
+    assert b'await saveLearned(++saveVersion)' in farming_script
 
 
 def test_spellbook_rejects_level_invalid_template(tmp_path):

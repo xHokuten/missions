@@ -144,6 +144,8 @@
     const used = cost(active);
     el("spell-count").textContent = active.length;
     el("book-points").textContent = `${used} / ${pointLimit(lvl)}`;
+    const bonus = assimilationBonus();
+    el("book-points").nextElementSibling.textContent = `Set points · ${learned.size} learned${bonus ? ` · +${bonus} bonus` : ""}`;
     el("book-slots").textContent = `${active.length} / ${slotLimit(lvl)}`;
     el("book-points").classList.toggle("over", used > pointLimit(lvl));
     el("active-spells").innerHTML = `${active.map(spell => `<article class="equipped-spell" data-view-spell="${spell.spell}" tabindex="0"><button type="button" data-remove="${spell.spell}" aria-label="Remove ${spell.spell}">×</button><div><strong>${effectTooltip(spell)}</strong>${badge(spell)}</div><span>Lv. ${spell.spell_level} · ${spell.set_points} pts</span><small>${spell.trait ? `${spell.trait} +${contribution(spell)}` : "No trait"} · ${(spell.set_stats || []).join(", ") || "No set stats"}</small></article>`).join("")}<button class="add-spell-tile" id="add-spell-tile" type="button"><b>+</b><span>Add Spell</span><small>${active.length}/${slotLimit(lvl)} slots used</small></button>`;

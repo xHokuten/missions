@@ -45,6 +45,7 @@
   let sortDirection = 1;
   let saveTimer;
   let saveVersion = 0;
+  let hasUnsavedChanges = false;
 
   const number = value => value === null || value === "" ? null : Number(value);
   const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -81,18 +82,33 @@
       });
       const destination = new URL(response.url, window.location.href).pathname;
       if (!response.ok || destination !== "/spell-farming") throw new Error("Save failed");
-      if (version === saveVersion) setSaveStatus("Saved", "");
+      if (version === saveVersion) {
+        hasUnsavedChanges = false;
+        setSaveStatus("Saved", "");
+      }
+      return true;
     } catch (_error) {
       if (version === saveVersion) setSaveStatus("Could not save - use Save Learned Spells", "error");
+      return false;
     }
   };
 
   const scheduleSave = () => {
     window.clearTimeout(saveTimer);
     const version = ++saveVersion;
+    hasUnsavedChanges = true;
     setSaveStatus("Unsaved changes", "saving");
     saveTimer = window.setTimeout(() => saveLearned(version), 450);
   };
+
+  document.querySelectorAll(".blue-tool-switcher a").forEach(link => link.addEventListener("click", async event => {
+    if (!hasUnsavedChanges) return;
+    event.preventDefault();
+    window.clearTimeout(saveTimer);
+    const destination = link.href;
+    const saved = await saveLearned(++saveVersion);
+    if (saved) window.location.assign(destination);
+  }));
 
   const renderLearnedList = () => {
     const spells = [...learned].sort((a, b) => a.localeCompare(b));
