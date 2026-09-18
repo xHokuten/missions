@@ -114,6 +114,30 @@
   exportButton.insertAdjacentElement("afterend", exportStatus);
   exportButton.addEventListener("click", exportBluSets);
 
+  document.querySelectorAll(".saved-template-list form").forEach(deleteForm => {
+    deleteForm.onsubmit = null;
+    deleteForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!window.confirm("Delete this template?")) return;
+      const response = await fetch(deleteForm.action, {
+      method: "POST",
+      body: new FormData(deleteForm),
+      credentials: "same-origin",
+      headers: { "X-Requested-With": "fetch" },
+      });
+    if (!response.ok) {
+      window.alert("The spell book could not be deleted. Please try again.");
+      return;
+    }
+    const deletedId = Number(deleteForm.action.match(/templates\/(\d+)\/delete/)?.[1]);
+    deleteForm.closest("article").remove();
+    if (Number(window.BLUE_TEMPLATE?.id) === deletedId) {
+      el("template-id").value = "";
+      saveButton.textContent = "Save Named Spell Book";
+    }
+    });
+  });
+
   const rightRail = document.createElement("aside");
   rightRail.className = "spellbook-right-rail";
   document.querySelector(".spellbook-three-column").append(rightRail);

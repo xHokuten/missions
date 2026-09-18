@@ -5804,6 +5804,8 @@ def create_app(test_config=None):
         get_db().commit()
         if not cursor.rowcount:
             abort(404)
+        if request.headers.get("X-Requested-With") == "fetch":
+            return "", 204
         flash("Deleted the Blue Mage spell template.", "success")
         return redirect(url_for("spell_farming", view="spellbook"))
 
