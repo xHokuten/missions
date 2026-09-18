@@ -327,6 +327,10 @@ def test_spellbook_saves_a_private_named_template(tmp_path):
     assert b'equipped.delete(remove.dataset.remove)' in builder_script
     assert builder_script.index(b'if (remove)') < builder_script.index(b'const view =')
     assert b'learned.size} learned' in builder_script
+    assert b'Export to BluSets' in builder_script
+    assert b'"Quadratic Continuum": "Quad. Continuum"' in builder_script
+    assert b'lines.join("\\r\\n")' in builder_script
+    assert b'download.download = fileName' in builder_script
     farming_script = client.get("/static/spell_farming.js").data
     assert b'if (!hasUnsavedChanges) return' in farming_script
     assert b'await saveLearned(++saveVersion)' in farming_script

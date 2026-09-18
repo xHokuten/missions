@@ -14,3 +14,7 @@
 /* Keep removal separate from the equipped card's spell-details click target. */
 .active-spells article>button{z-index:2;top:4px;right:4px;display:grid;width:32px;height:32px;place-items:center;padding:0;border-radius:6px;background:#10273a;line-height:1;touch-action:manipulation}
 .active-spells article>button:hover,.active-spells article>button:focus-visible{background:#294a65;color:#fff;outline:2px solid #7edcff;outline-offset:1px}
+
+/* BluSets exports are browser downloads ready to move into HorizonXI's addon config folder. */
+.blusets-export-button{width:100%;margin-top:8px;border-color:#58a8cf!important;color:#a8e5ff!important}
+.blusets-export-status{display:block;margin-top:8px;color:#91a8bb;font-size:10px;line-height:1.45}

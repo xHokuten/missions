@@ -84,6 +84,36 @@
     }));
   };
 
+  const bluSetsNames = { "Quadratic Continuum": "Quad. Continuum" };
+  const safeFileName = value => value.trim().replace(/\.txt$/i, "").replace(/[<>:"/\\|?*\x00-\x1F]/g, "-").replace(/[. ]+$/g, "") || `blu-level-${level()}`;
+  const exportBluSets = () => {
+    const selected = [...equipped].map(name => bluSetsNames[name] || name);
+    const lines = [...selected, ...Array(Math.max(0, 20 - selected.length)).fill("")];
+    const fileName = `${safeFileName(document.querySelector('#save-book-form input[name="name"]').value)}.txt`;
+    const blobUrl = URL.createObjectURL(new Blob([lines.join("\r\n")], { type: "text/plain;charset=utf-8" }));
+    const download = document.createElement("a");
+    download.href = blobUrl;
+    download.download = fileName;
+    document.body.append(download);
+    download.click();
+    download.remove();
+    URL.revokeObjectURL(blobUrl);
+    el("blusets-export-status").textContent = `${fileName} downloaded. Move it into your HorizonXI config/addons/blusets folder.`;
+  };
+
+  const saveButton = document.querySelector("#save-book-form > button[type='submit']");
+  const exportButton = document.createElement("button");
+  exportButton.className = "button blusets-export-button";
+  exportButton.id = "export-blusets";
+  exportButton.type = "button";
+  exportButton.textContent = "Export to BluSets";
+  const exportStatus = document.createElement("small");
+  exportStatus.id = "blusets-export-status";
+  exportStatus.className = "blusets-export-status";
+  saveButton.insertAdjacentElement("afterend", exportButton);
+  exportButton.insertAdjacentElement("afterend", exportStatus);
+  exportButton.addEventListener("click", exportBluSets);
+
   const rightRail = document.createElement("aside");
   rightRail.className = "spellbook-right-rail";
   document.querySelector(".spellbook-three-column").append(rightRail);
