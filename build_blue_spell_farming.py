@@ -57,12 +57,23 @@ HORIZON_SPELL_OVERRIDES = {
     "quadratic continuum": {
         "spell_level": 54, "trait": "Defense Bonus", "trait_weight": 1,
     },
+    "vanity dive": {
+        "spell_level": 28, "set_points": 4, "set_stats": ["AGI+1"],
+        "trait": "Accuracy Bonus", "trait_weight": 1,
+    },
     "winds of promyvion": {
         "spell_level": 56,
     },
 }
 
 HORIZON_COMBAT_OVERRIDES = {
+    "vanity dive": {
+        "spell_type": "Physical",
+        "element": None,
+        "stat_modifiers": ["STR (fSTR)", "DEX 50%"],
+        "physical_damage_type": "Slashing",
+        "description": "Damage varies with TP.",
+    },
     "winds of promyvion": {
         "spell_type": "Magical",
         "element": "Light",

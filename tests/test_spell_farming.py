@@ -31,8 +31,9 @@ def test_catalog_excludes_post_toau_zones_and_derives_minimum_skill():
         {"spell_level": 61, "name": "Bad Breath", "monster_name": "Morbol",
          "zone": "Abyssea - La Theine", "min_level": "80", "max_level": "82", "link": ""},
     ])
-    assert len(payload["rows"]) == 1
-    assert payload["rows"][0]["minimum_skill"] == 247
+    vertical_cleave = next(row for row in payload["rows"] if row["spell"] == "Vertical Cleave")
+    assert vertical_cleave["minimum_skill"] == 247
+    assert not any(row["spell"] == "Bad Breath" for row in payload["rows"])
 
 
 def test_horizon_spell_cards_override_retail_blue_magic_metadata():
@@ -61,6 +62,21 @@ def test_horizon_spell_cards_override_retail_blue_magic_metadata():
     assert spells["Occultation"]["spell_level"] == 38
     assert spells["Occultation"]["trait"] == "Evasion Bonus"
     assert payload["horizon_spell_card_source"] == HORIZON_SPELL_CARD_SOURCE
+
+
+def test_horizon_vanity_dive_is_available_for_accuracy_bonus_builds():
+    payload = build([{
+        "spell_level": 82, "name": "Vanity Dive", "monster_name": "Wanderer",
+        "zone": "Promyvion - Dem", "min_level": 22, "max_level": 36,
+    }])
+    rows = [row for row in payload["rows"] if row["spell"] == "Vanity Dive"]
+    assert len(rows) == 1
+    assert rows[0]["zone"] == "Promyvion - Dem"
+    assert all(row["spell_level"] == 28 for row in rows)
+    assert all(row["set_points"] == 4 for row in rows)
+    assert all(row["set_stats"] == ["AGI+1"] for row in rows)
+    assert all(row["trait"] == "Accuracy Bonus" for row in rows)
+    assert all(row["trait_weight"] == 1 for row in rows)
 
 
 def test_promyvion_vahzl_horizon_spells_are_kept_with_their_learning_targets():
@@ -197,7 +213,7 @@ def test_spell_farming_page_and_generated_catalog(tmp_path):
 
     payload = json.loads(Path("static/blue_spell_farming.json").read_text(encoding="utf-8"))
     assert len(payload["rows"]) > 500
-    assert len({row["spell"] for row in payload["rows"]}) == 105
+    assert len({row["spell"] for row in payload["rows"]}) == 106
     assert all(row["spell_level"] <= 75 for row in payload["rows"])
     assert all(row["set_points"] is not None for row in payload["rows"])
     foot_kick = next(row for row in payload["rows"] if row["spell"] == "Foot Kick")
@@ -208,7 +224,7 @@ def test_spell_farming_page_and_generated_catalog(tmp_path):
     assert blood_saber["set_points"] == 3
     assert blood_saber["trait"] == "Auto Refresh"
     assert blood_saber["trait_weight"] == 4
-    assert {"Auroral Drape", "Empty Thrash", "Occultation"} <= {
+    assert {"Auroral Drape", "Empty Thrash", "Occultation", "Vanity Dive"} <= {
         row["spell"] for row in payload["rows"]
     }
     assert {"Quadratic Continuum", "Winds of Promyvion"} <= {
