@@ -44,6 +44,8 @@ def test_horizon_spell_cards_override_retail_blue_magic_metadata():
                        "trait": None, "trait_weight": 0},
         "occultation": {"set_points": 3, "set_stats": ["VIT+2"],
                         "trait": None, "trait_weight": 0},
+        "voracious trunk": {"set_points": 4, "set_stats": ["HP+5", "MP+5"],
+                             "trait": None, "trait_weight": 0},
     }
     payload = build([
         {"spell_level": 48, "name": "Blood Saber", "monster_name": "Skeleton",
@@ -52,6 +54,8 @@ def test_horizon_spell_cards_override_retail_blue_magic_metadata():
          "zone": "Yhoator Jungle", "min_level": "30", "max_level": "34"},
         {"spell_level": 88, "name": "Occultation", "monster_name": "Seether",
          "zone": "Promyvion - Dem", "min_level": "31", "max_level": "38"},
+        {"spell_level": 64, "name": "Voracious Trunk", "monster_name": "Marid",
+         "zone": "Wajaom Woodlands", "min_level": "70", "max_level": "73"},
     ], metadata)
     spells = {row["spell"]: row for row in payload["rows"]}
     assert spells["Blood Saber"]["set_points"] == 3
@@ -61,6 +65,7 @@ def test_horizon_spell_cards_override_retail_blue_magic_metadata():
     assert spells["Geist Wall"]["trait_weight"] == 4
     assert spells["Occultation"]["spell_level"] == 38
     assert spells["Occultation"]["trait"] == "Evasion Bonus"
+    assert spells["Voracious Trunk"]["set_points"] == 3
     assert payload["horizon_spell_card_source"] == HORIZON_SPELL_CARD_SOURCE
 
 

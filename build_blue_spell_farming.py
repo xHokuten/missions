@@ -61,6 +61,7 @@ HORIZON_SPELL_OVERRIDES = {
         "spell_level": 28, "set_points": 4, "set_stats": ["AGI+1"],
         "trait": "Accuracy Bonus", "trait_weight": 1,
     },
+    "voracious trunk": {"set_points": 3},
     "winds of promyvion": {
         "spell_level": 56,
     },
