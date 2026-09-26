@@ -1439,7 +1439,7 @@ def test_sky_auction_includes_complete_seiryu_pool(tmp_path):
     database.close()
 
     started = client.post("/endgame/auctions", data={
-        "csrf_token": "token", "event_id": str(event_id), "boss": "Seiryu", "duration_minutes": "3",
+        "csrf_token": "token", "event_id": str(event_id), "boss": "Seiryu", "duration_minutes": "1",
     })
     assert started.status_code == 302
     auction = client.get("/api/endgame/auctions").get_json()["auctions"][0]

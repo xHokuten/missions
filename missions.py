@@ -4005,8 +4005,8 @@ def create_app(test_config=None):
         event_id = request.form.get("event_id", type=int)
         boss = request.form.get("boss", "").strip()
         duration_minutes = request.form.get("duration_minutes", type=int)
-        if duration_minutes not in range(3, 11):
-            abort(400, description="Choose an auction duration between 3 and 10 minutes.")
+        if duration_minutes not in range(1, 11):
+            abort(400, description="Choose an auction duration between 1 and 10 minutes.")
         boss_items = [dict(item) for item in (*ENDGAME_PRIORITY_ITEMS, *ENDGAME_AUCTION_EXTRA_DROPS)
                       if item["source"] == boss]
         event = get_db().execute("SELECT * FROM guild_events WHERE id=?", (event_id,)).fetchone()
