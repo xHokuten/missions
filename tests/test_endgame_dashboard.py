@@ -453,6 +453,9 @@ def test_ls_bank_records_officer_gil_transfer_separately_from_inventory(tmp_path
     database.close()
     page = client.get("/endgame#bank").data
     assert b"Add Gil Transfer" in page
+    assert b'<details class="ls-bank-add ls-gil-transfer-add" open>' in page
+    assert b'<details class="ls-gil-transfer-log"><summary>' in page
+    assert b'class="gil-transfer-editable"' in page
     assert b"Treasury handoff" in page
     assert b"750,000g" in page
     assert b"window.ENDGAME_GIL_TRANSFERS=" in page
@@ -1574,10 +1577,22 @@ def test_live_dkp_auction_records_winner_and_deducts_balance(tmp_path):
     assert novio["eligible_jobs"][0]["job"] == "BLM"
     assert novio["tooltip"]["name"] == "Novio Earring"
     assert novio["tooltip"]["description"]
-    denied = client.post(f"/api/endgame/auction-items/{novia['id']}/bid", json={
+    open_dkp_bid = client.post(f"/api/endgame/auction-items/{novia['id']}/bid", json={
         "job": "BLM", "amount": 1,
     }, headers={"X-CSRF-Token": "token"})
-    assert denied.status_code == 403
+    assert open_dkp_bid.status_code == 200
+    open_dkp_item = next(
+        item for item in open_dkp_bid.get_json()["auction"]["auctions"][0]["items"]
+        if item["id"] == novia["id"]
+    )
+    assert open_dkp_item["my_bid"]["tier"] == 4
+    database = sqlite3.connect(app.config["DATABASE"])
+    database.execute(
+        "DELETE FROM endgame_auction_bids WHERE auction_item_id=? AND member_id=1",
+        (novia["id"],),
+    )
+    database.commit()
+    database.close()
 
     bid = client.post(f"/api/endgame/auction-items/{novio['id']}/bid", json={
         "job": "BLM", "amount": 2,

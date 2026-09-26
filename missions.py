@@ -3772,7 +3772,10 @@ def create_app(test_config=None):
         for tier in (1, 2, 3):
             if job in tuple(filter(None, str(item[f"p{tier}"] or "").split(","))):
                 return tier
-        return 4 if not any(item[f"p{tier}"] for tier in (1, 2, 3)) else None
+        # A leveled job outside the published priority table may still spend DKP.
+        # It ranks after P1/P2/P3, but prevents useful gear from falling straight
+        # to a no-cost freelot when a member is willing to bid for it.
+        return 4
 
     def refresh_auction_statuses():
         db = get_db()
@@ -4217,7 +4220,8 @@ def create_app(test_config=None):
                    (event_id,recipient_member_id,item,job,family,distribution,classification,dkp_cost,auction_id,auction_item_id,recorded_by)
                    VALUES(?,?,?,?,?,?, 'Major Loot',?,?,?,?)""",
                 (auction["event_id"], winner_id, item["item"], bid["job"], item["family"],
-                 f"{'Freelot' if tier == 4 else f'P{tier}'}", bid["amount"], auction_id, item["id"], actor["id"]),
+                 f"{'Open DKP' if tier == 4 and any(item[f'p{n}'] for n in (1, 2, 3)) else ('Freelot' if tier == 4 else f'P{tier}')}",
+                 bid["amount"], auction_id, item["id"], actor["id"]),
             )
             balances[winner_id]["balance"] -= bid["amount"]
             awards += 1

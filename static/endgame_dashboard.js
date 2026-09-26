@@ -379,6 +379,43 @@
     clearTimeout(showBankSaveMessage.timer);
     showBankSaveMessage.timer = setTimeout(() => { notice.hidden = true; }, 3500);
   };
+  document.querySelectorAll(".gil-transfer-row").forEach(row => {
+    const form = row.querySelector(".gil-transfer-edit-form");
+    if (!form) return;
+    const beginEdit = () => row.classList.add("editing");
+    row.querySelectorAll(".gil-transfer-editable").forEach(cell => cell.addEventListener("click", event => {
+      if (!event.target.matches("input, select")) beginEdit();
+    }));
+    row.querySelector(".gil-transfer-edit")?.addEventListener("click", beginEdit);
+    row.querySelector(".gil-transfer-cancel")?.addEventListener("click", () => {
+      form.reset();
+      row.classList.remove("editing");
+    });
+    form.addEventListener("submit", async event => {
+      if (event.submitter?.classList.contains("gil-transfer-remove")) return;
+      event.preventDefault();
+      const button = event.submitter;
+      if (button) button.disabled = true;
+      try {
+        const response = await fetch(form.action, {method: "POST", body: new FormData(form)});
+        if (!response.ok) throw new Error(`Save failed (${response.status})`);
+        const from = row.querySelector("select[name='from_member_id']");
+        const to = row.querySelector("select[name='to_member_id']");
+        const amount = row.querySelector("input[name='amount_gil']");
+        const notes = row.querySelector("input[name='notes']");
+        row.cells[1].querySelector("span").textContent = from.selectedOptions[0]?.textContent || "—";
+        row.cells[2].querySelector("span").textContent = to.selectedOptions[0]?.textContent || "—";
+        row.cells[3].querySelector("strong").textContent = `${Number(amount.value).toLocaleString()}g`;
+        row.cells[4].querySelector("span").textContent = notes.value || "—";
+        row.classList.remove("editing");
+        showBankSaveMessage("Gil transfer saved.");
+      } catch (error) {
+        showBankSaveMessage(error.message || "Could not save the gil transfer.");
+      } finally {
+        if (button) button.disabled = false;
+      }
+    });
+  });
   document.querySelectorAll(".ls-bank-row-editor").forEach(form => {
     const row = form.closest("tr");
     form.id ||= `ls-bank-editor-${form.action.match(/\/bank\/(\d+)\/update/)?.[1] || Math.random().toString(36).slice(2)}`;
@@ -1124,7 +1161,8 @@
       const acceptingBids = active && !auction.paused;
       const items = auction.items.map(item => {
         const bids = item.bids.length ? item.bids.map((bid, index) => `<li class="${index === 0 ? "leading" : ""}"><span><b>${safeText(bid.name)}</b> ${safeText(bid.job)} · P${bid.tier === 4 ? "Free" : bid.tier}</span><strong>${bid.amount} DKP</strong></li>`).join("") : '<li class="no-bids">No bids yet</li>';
-        const jobOptions = item.eligible_jobs.map(entry => `<option value="${entry.job}" ${item.my_bid?.job === entry.job ? "selected" : ""}>${entry.job} · Lv.${entry.level} · ${entry.tier === 4 ? "Freelot" : `P${entry.tier}`}</option>`).join("");
+        const hasPriorityTiers = [1, 2, 3].some(tier => item[`p${tier}`]);
+        const jobOptions = item.eligible_jobs.map(entry => `<option value="${entry.job}" ${item.my_bid?.job === entry.job ? "selected" : ""}>${entry.job} · Lv.${entry.level} · ${entry.tier === 4 ? (hasPriorityTiers ? "Open DKP" : "Freelot") : `P${entry.tier}`}</option>`).join("");
         const bidderOptions = item.bids.map(bid => `<option value="${bid.member_id}" ${bid.member_id === item.suggested_winner_id ? "selected" : ""}>${safeText(bid.name)} · ${bid.job} · ${bid.amount} DKP · P${bid.tier === 4 ? "Free" : bid.tier}</option>`).join("");
         return `<article class="auction-item-card"><header><div><h4><button class="auction-tooltip-target" type="button" data-auction-tooltip="${item.id}">${safeText(item.item)}</button></h4><small>${item.target_item && item.target_item !== item.item ? `${safeText(item.target_item)} · ` : ""}${safeText(item.family)} · Lv.${item.required_level}</small></div><b>${item.bids.length} bid${item.bids.length === 1 ? "" : "s"}</b></header><ol class="auction-bid-list">${bids}</ol>${acceptingBids ? (jobOptions ? `<form class="auction-bid-form" data-auction-item="${item.id}"><select name="job" required><option value="">Eligible job</option>${jobOptions}</select><input type="number" name="amount" min="1" max="${item.max_bid}" value="${item.my_bid?.amount || ""}" placeholder="DKP" required><button type="submit">${item.my_bid ? "Update Bid" : "Place Bid"}</button><small class="auction-bid-budget">Up to ${item.max_bid} DKP; increasing this may reduce other active bids</small></form>` : '<p class="auction-ineligible">No eligible leveled job for this item.</p>') : (active ? '<p class="auction-paused-note">Bidding is paused by leadership.</p>' : `<label class="auction-winner-select">Confirmed winner<select name="winner_${item.id}" form="confirm-auction-${auction.id}"><option value="">No award</option>${bidderOptions}</select></label>`)}</article>`;
       }).join("");
