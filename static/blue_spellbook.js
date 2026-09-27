@@ -190,10 +190,6 @@
 
   const render = () => {
     const lvl = level();
-    [...equipped].forEach(name => {
-      const spell = spells.find(row => row.spell === name);
-      if (!spell || spell.spell_level > lvl) equipped.delete(name);
-    });
     const active = current();
     const used = cost(active);
     el("spell-count").textContent = active.length;
@@ -358,7 +354,17 @@
     if (quick) { const spell = spells.find(row => row.spell === quick.dataset.quickAdd); if (spell && canAdd(spell)) { equipped.add(spell.spell); render(); renderQuickPicker(); } }
     if (event.target.closest("#add-spell-tile")) openPicker();
   });
+  // Recalculate budgets while the member types without destroying the loaded
+  // template for transient values (editing 50 to 60 briefly produces 6).
   levelInput.addEventListener("input", render);
+  levelInput.addEventListener("change", () => {
+    const lvl = level();
+    [...equipped].forEach(name => {
+      const spell = spells.find(row => row.spell === name);
+      if (!spell || spell.spell_level > lvl) equipped.delete(name);
+    });
+    render();
+  });
   ["book-search", "book-skillchain-filter", "book-damage-filter"].forEach(id => {
     el(id).addEventListener("input", render);
     el(id).addEventListener("change", render);

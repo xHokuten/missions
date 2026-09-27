@@ -339,6 +339,11 @@ def test_spellbook_saves_a_private_named_template(tmp_path):
     assert b'Additional Effect / Spell Equivalent' in builder_script
     assert b'book-skillchain-element-filter' in builder_script
     assert b'spellbook-right-rail' in builder_script
+    assert b'levelInput.addEventListener("input", render)' in builder_script
+    assert b'levelInput.addEventListener("change", () =>' in builder_script
+    render_start = builder_script.index(b'const render = () =>')
+    render_budget = builder_script.index(b'const active = current()', render_start)
+    assert b'equipped.delete(name)' not in builder_script[render_start:render_budget]
     assert b'Chain Affinity Skillchains &amp; Damage' not in builder_script
     assert b'Self Skillchain &amp; Burst Planner' in builder_script
     assert b'book-skillchain-filter' in builder_script
