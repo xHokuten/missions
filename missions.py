@@ -3081,8 +3081,16 @@ def create_app(test_config=None):
                 "last_event": last_event[:10] if last_event else "—",
             })
         dkp_values = [member["dkp"] for member in prototype_roster]
+        active_member_ids = recent_endgame_attendee_ids()
+        active_dkp_values = [
+            member["dkp"] for member in prototype_roster
+            if member["id"] in active_member_ids
+        ]
         dkp_highest = int(round(max(dkp_values, default=0)))
-        dkp_average = int(round(sum(dkp_values) / len(dkp_values))) if dkp_values else 0
+        dkp_average = (
+            int(round(sum(active_dkp_values) / len(active_dkp_values)))
+            if active_dkp_values else 0
+        )
         dkp_bid_cap = max(ENDGAME_MINIMUM_BID_CAP, dkp_highest - dkp_average)
         persistent_loot = [dict(row) for row in get_db().execute(
             """SELECT substr(e.start_at,6,2)||'/'||substr(e.start_at,9,2)||'/'||substr(e.start_at,1,4) date,
@@ -3729,11 +3737,40 @@ def create_app(test_config=None):
             for row in members
         }
 
+    def recent_endgame_attendee_ids(days=30):
+        """Return members who attended a completed Endgame event in the rolling window."""
+        now = eastern_now_naive()
+        cutoff = now - timedelta(days=days)
+        events = [
+            event for event in get_db().execute(
+                """SELECT * FROM guild_events
+                   WHERE status='Completed' AND start_at>=? AND start_at<=?""",
+                (cutoff.isoformat(timespec="minutes"), now.isoformat(timespec="minutes")),
+            ).fetchall()
+            if is_endgame_guild_event(event)
+        ]
+        if not events:
+            return set()
+        event_marks = ",".join("?" for _ in events)
+        return {
+            row["member_id"] for row in get_db().execute(
+                f"""SELECT DISTINCT member_id FROM guild_event_attendance
+                     WHERE attended=1 AND event_id IN ({event_marks})""",
+                [event["id"] for event in events],
+            ).fetchall()
+        }
+
     def current_bid_cap(balances):
         values = [entry["balance"] for entry in balances.values()]
+        active_member_ids = recent_endgame_attendee_ids()
+        active_values = [
+            entry["balance"] for member_id, entry in balances.items()
+            if member_id in active_member_ids
+        ]
         highest = max(values, default=0)
-        average = int(round(sum(values) / len(values))) if values else 0
+        average = int(round(sum(active_values) / len(active_values))) if active_values else 0
         return {"highest": highest, "average": average,
+                "active_members": len(active_values),
                 "cap": max(ENDGAME_MINIMUM_BID_CAP, highest - average)}
 
     def auction_item_family(name):

@@ -132,7 +132,8 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     assert b"Current bid cap" not in response.data
     assert b"Highest DKP" in response.data
     assert b"Average balance" not in response.data
-    assert response.data.count(b'data-auction-metric=') == 6
+    assert b"Average active member DKP" in response.data
+    assert response.data.count(b'data-auction-metric=') == 8
     assert b'"name": "Zenith Mitts"' in response.data
     assert b'"required_level": 73' in response.data
     assert b"P1 may bid" in response.data
@@ -1556,6 +1557,51 @@ def test_auction_poll_batches_related_queries_without_writing(monkeypatch, tmp_p
     assert sum("FROM guild_event_attendance WHERE attended=1 AND event_id IN" in sql for sql in normalized) <= 1
     assert not any(sql.startswith("UPDATE endgame_auctions SET status='Closed'") for sql in normalized)
     assert "COMMIT" not in normalized
+
+
+def test_bid_cap_uses_average_of_recent_endgame_attendees(monkeypatch, tmp_path):
+    import sqlite3
+    from datetime import datetime
+
+    monkeypatch.setattr(missions, "eastern_now_naive", lambda: datetime(2026, 9, 28, 12, 0))
+    app = make_app(tmp_path)
+    database = sqlite3.connect(app.config["DATABASE"])
+    creator_id = database.execute("SELECT id FROM members WHERE name='Imaven'").fetchone()[0]
+    member_ids = []
+    for name in ("Recent High", "Recent Low", "Stale High"):
+        member_ids.append(database.execute("INSERT INTO members(name) VALUES(?)", (name,)).lastrowid)
+    recent_event = database.execute(
+        """INSERT INTO guild_events
+           (creator_member_id,name,start_at,end_at,status,discord_channel)
+           VALUES(?, 'Recent Sky', '2026-09-20T20:00', '2026-09-20T23:00',
+                  'Completed', 'endgame-events-only')""",
+        (creator_id,),
+    ).lastrowid
+    stale_event = database.execute(
+        """INSERT INTO guild_events
+           (creator_member_id,name,start_at,end_at,status,discord_channel)
+           VALUES(?, 'Old Sky', '2026-08-20T20:00', '2026-08-20T23:00',
+                  'Completed', 'endgame-events-only')""",
+        (creator_id,),
+    ).lastrowid
+    database.executemany(
+        "INSERT INTO guild_event_attendance(event_id,member_id,attended) VALUES(?,?,1)",
+        [(recent_event, member_ids[0]), (recent_event, member_ids[1]), (stale_event, member_ids[2])],
+    )
+    database.executemany(
+        """INSERT INTO endgame_attendance_dkp_adjustments(event_id,member_id,dkp_delta)
+           VALUES(?,?,?)""",
+        [(recent_event, member_ids[0], 97), (recent_event, member_ids[1], 17),
+         (stale_event, member_ids[2], 87)],
+    )
+    database.commit()
+    database.close()
+
+    client = app.test_client()
+    sign_in(client, member_id=creator_id, admin=True)
+    dkp = client.get("/api/endgame/auctions").get_json()["dkp"]
+
+    assert dkp == {"highest": 100, "average": 60, "active_members": 2, "cap": 40}
 
 
 def test_live_dkp_auction_records_winner_and_deducts_balance(tmp_path):

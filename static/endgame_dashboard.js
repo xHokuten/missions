@@ -1179,6 +1179,9 @@
     document.querySelectorAll('[data-auction-metric="my-dkp"]').forEach(metric => { metric.textContent = `${payload.my_available} DKP${payload.my_reserved ? ` (${payload.my_reserved} committed)` : ""}`; });
     document.querySelectorAll('[data-auction-metric="bid-cap"]').forEach(metric => { metric.textContent = `${payload.dkp.cap} DKP`; });
     document.querySelectorAll('[data-auction-metric="highest-dkp"]').forEach(metric => { metric.textContent = `${payload.dkp.highest} DKP`; });
+    document.querySelectorAll('[data-auction-metric="active-average-dkp"]').forEach(metric => {
+      metric.textContent = `${payload.dkp.average} DKP (${payload.dkp.active_members} active)`;
+    });
     auctionTooltips = Object.fromEntries(payload.auctions.flatMap(auction => auction.items.map(item => [String(item.id), item.tooltip || {}])));
     auctionRecords = new Map(payload.auctions.map(auction => [String(auction.id), auction]));
     auctionRoot.innerHTML = displayedAuctions.length ? displayedAuctions.map((auction, index) => {
@@ -1638,7 +1641,7 @@
   document.querySelector(".dialog-close").addEventListener("click", () => { dialog.close(); dialog.classList.remove("event-detail-dialog", "member-history-dialog"); });
   document.addEventListener("click", event => {
     const auctionLink = event.target.closest("[data-open-auction]");
-    const memberCell = event.target.closest("#endgame-roster-body td:first-child");
+    const memberCell = event.target.closest("#endgame-roster-body .member-name-cell");
     const eventHistoryLink = event.target.closest("[data-member-event-link]");
     const lootHistoryLink = event.target.closest("[data-member-loot-link]");
     const serverEventButton = event.target.closest("[data-open-server-event]");
