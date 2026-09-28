@@ -27,6 +27,32 @@
   else if (requested === "bank") activateView("bank");
   else if (["events", "pops", "admin-audit"].includes(requested)) { activateView("operations"); activate(requested); }
   else activateView("calendar");
+  const bulkMemberForm = document.querySelector("#bulk-member-remove-form");
+  const selectAllMembers = document.querySelector("#select-all-members");
+  const removeSelectedMembers = document.querySelector("#remove-selected-members");
+  const memberCheckboxes = [...document.querySelectorAll(".member-remove-checkbox:not(:disabled)")];
+  const updateMemberSelection = () => {
+    const selected = memberCheckboxes.filter(box => box.checked);
+    if (removeSelectedMembers) {
+      removeSelectedMembers.disabled = selected.length === 0;
+      removeSelectedMembers.querySelector("span").textContent = selected.length;
+    }
+    if (selectAllMembers) {
+      const visible = memberCheckboxes.filter(box => !box.closest("tr").hidden);
+      selectAllMembers.checked = visible.length > 0 && visible.every(box => box.checked);
+      selectAllMembers.indeterminate = visible.some(box => box.checked) && !selectAllMembers.checked;
+    }
+  };
+  memberCheckboxes.forEach(box => box.addEventListener("change", updateMemberSelection));
+  selectAllMembers?.addEventListener("change", () => {
+    memberCheckboxes.filter(box => !box.closest("tr").hidden).forEach(box => { box.checked = selectAllMembers.checked; });
+    updateMemberSelection();
+  });
+  bulkMemberForm?.addEventListener("submit", event => {
+    const selected = memberCheckboxes.filter(box => box.checked);
+    const names = selected.map(box => box.closest("tr").querySelector("td b")?.textContent.trim()).filter(Boolean);
+    if (!selected.length || !confirm(`Remove ${selected.length} member${selected.length === 1 ? "" : "s"} and revoke their website access?\n\n${names.join(", ")}\n\nThis cannot be undone.`)) event.preventDefault();
+  });
   const payoutAttendanceForm = document.querySelector("#payout-attendance-form");
   const payoutAddForm = document.querySelector("[data-payout-async='add']");
   const submitPayoutForm = async form => {

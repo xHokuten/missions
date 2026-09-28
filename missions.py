@@ -6410,7 +6410,47 @@ def create_app(test_config=None):
         db.execute("DELETE FROM members WHERE id=?", (member_id,))
         db.commit()
         flash(f"{target['name']} was removed and their website access was revoked.", "success")
-        return redirect(request.referrer or url_for("index"))
+        return redirect(url_for("endgame_dashboard", _anchor="jobs"))
+
+    @app.post("/members/delete")
+    @admin_required
+    def delete_members():
+        db = get_db()
+        actor = require_member_identity()
+        member_ids = {
+            int(value) for value in request.form.getlist("member_ids")
+            if value.isdigit()
+        }
+        if not member_ids:
+            flash("Select at least one member to remove.", "error")
+            return redirect(url_for("endgame_dashboard", _anchor="jobs"))
+
+        placeholders = ",".join("?" for _ in member_ids)
+        targets = db.execute(
+            f"SELECT id,name FROM members WHERE id IN ({placeholders}) ORDER BY name COLLATE NOCASE",
+            tuple(member_ids),
+        ).fetchall()
+        protected = [
+            target["name"] for target in targets
+            if target["id"] == actor["id"] or target["name"].casefold() == "imaven"
+        ]
+        if protected:
+            abort(400, description="You cannot remove the administrator account or your own account.")
+        if len(targets) != len(member_ids):
+            abort(404, description="One or more selected members no longer exist.")
+
+        for target in targets:
+            db.execute(
+                "INSERT INTO admin_change_log(actor_member_id,area,action,details) VALUES(?,?,?,?)",
+                (actor["id"], "Members", "Member removed", target["name"]),
+            )
+        db.execute(f"DELETE FROM members WHERE id IN ({placeholders})", tuple(member_ids))
+        db.commit()
+        flash(
+            f"Removed {len(targets)} member{'s' if len(targets) != 1 else ''} and revoked their website access.",
+            "success",
+        )
+        return redirect(url_for("endgame_dashboard", _anchor="jobs"))
 
     with app.app_context():
         init_db()

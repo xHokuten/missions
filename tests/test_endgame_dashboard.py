@@ -330,6 +330,52 @@ def test_admin_can_remove_member_and_revoke_their_existing_session(tmp_path):
     assert departed.get("/endgame").status_code == 302
 
 
+def test_admin_can_bulk_remove_members_and_stay_on_member_detail(tmp_path):
+    import sqlite3
+
+    app = make_app(tmp_path)
+    database = sqlite3.connect(app.config["DATABASE"])
+    database.executemany(
+        "INSERT INTO members(name) VALUES(?)", [("Departed One",), ("Departed Two",)]
+    )
+    departed_ids = [
+        row[0] for row in database.execute(
+            "SELECT id FROM members WHERE name LIKE 'Departed %' ORDER BY id"
+        )
+    ]
+    database.commit()
+    database.close()
+    officer = app.test_client()
+    sign_in(officer, member_id=1, admin=True)
+
+    page = officer.get("/endgame#jobs")
+    assert b'id="bulk-member-remove-form"' in page.data
+    assert all(f'value="{member_id}"'.encode() in page.data for member_id in departed_ids)
+
+    response = officer.post(
+        "/members/delete",
+        data={"csrf_token": "token", "member_ids": [str(value) for value in departed_ids]},
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/endgame#jobs")
+    database = sqlite3.connect(app.config["DATABASE"])
+    assert database.execute(
+        "SELECT COUNT(*) FROM members WHERE id IN (?,?)", departed_ids
+    ).fetchone()[0] == 0
+    database.close()
+
+
+def test_bulk_member_removal_rejects_the_signed_in_admin(tmp_path):
+    app = make_app(tmp_path)
+    officer = app.test_client()
+    sign_in(officer, member_id=1, admin=True)
+
+    response = officer.post(
+        "/members/delete", data={"csrf_token": "token", "member_ids": "1"}
+    )
+    assert response.status_code == 400
+
+
 def test_ls_bank_tracks_event_items_sales_and_officer_custody(tmp_path):
     import sqlite3
 
