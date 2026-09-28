@@ -302,6 +302,7 @@ GEAR_STAT_ALIASES = {
     "magic atk bonus": "Magic Attack Bonus", "magic defense bonus": "Magic Defense Bonus",
     "magic def. bonus": "Magic Defense Bonus",
     "cure potency": "Cure Potency", "refresh": "Refresh", "regen": "Regen",
+    "spell interruption rate down": "Spell Interruption Rate Down",
     "fire resistance": "Fire Resistance", "ice resistance": "Ice Resistance",
     "wind resistance": "Wind Resistance", "earth resistance": "Earth Resistance",
     "lightning resistance": "Lightning Resistance", "water resistance": "Water Resistance",

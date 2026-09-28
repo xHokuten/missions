@@ -84,6 +84,12 @@ def test_parse_gear_stats_supports_abbreviated_magic_attack_bonus():
     assert parse_gear_stats('"Magic Atk. Bonus"+7') == {"Magic Attack Bonus": 7}
 
 
+def test_parse_gear_stats_supports_spell_interruption_rate_down():
+    assert parse_gear_stats("DEF:7 Spell interruption rate down 25%") == {
+        "DEF": 7, "Spell Interruption Rate Down": 25,
+    }
+
+
 def test_lsb_item_stats_supplies_hidden_numeric_effect_values():
     stats = lsb_item_stats(
         "INSERT INTO `item_mods` VALUES (14813,288,5);\n"
@@ -214,11 +220,17 @@ def test_bundled_catalog_has_level_75_gear_and_searchable_stats():
     payload = json.loads(Path("static/gear_catalog.json").read_text(encoding="utf-8"))
     assert len(payload["rows"]) > 6000
     assert "Lightning Resistance" in payload["stats"]
+    assert "Spell Interruption Rate Down" in payload["stats"]
     lightning_items = [
         item for item in payload["rows"]
         if item["stats"].get("Lightning Resistance")
     ]
+    interruption_items = [
+        item for item in payload["rows"]
+        if item["stats"].get("Spell Interruption Rate Down")
+    ]
     assert len(lightning_items) > 100
+    assert len(interruption_items) > 20
     assert all(1 <= item["level"] <= 75 for item in payload["rows"])
     assert all(item["jobs"] and item["races"] and item["slots"] for item in payload["rows"])
     rows = {item["name"]: item for item in payload["rows"]}
