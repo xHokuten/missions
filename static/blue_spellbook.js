@@ -101,7 +101,7 @@
     el("blusets-export-status").textContent = `${fileName} downloaded. Move it into your HorizonXI config/addons/blusets folder.`;
   };
 
-  const saveButton = document.querySelector("#save-book-form > button[type='submit']");
+  const saveButton = el("save-book-primary");
   const exportButton = document.createElement("button");
   exportButton.className = "button blusets-export-button";
   exportButton.id = "export-blusets";
@@ -134,6 +134,8 @@
     if (Number(window.BLUE_TEMPLATE?.id) === deletedId) {
       el("template-id").value = "";
       saveButton.textContent = "Save Named Spell Book";
+      saveButton.value = "new";
+      el("save-book-as-new")?.remove();
     }
     });
   });

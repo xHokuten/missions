@@ -18,3 +18,4 @@
 /* BluSets exports are browser downloads ready to move into HorizonXI's addon config folder. */
 .blusets-export-button{width:100%;margin-top:8px;border-color:#58a8cf!important;color:#a8e5ff!important}
 .blusets-export-status{display:block;margin-top:8px;color:#91a8bb;font-size:10px;line-height:1.45}
+.template-save-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.template-save-actions .button{white-space:normal}

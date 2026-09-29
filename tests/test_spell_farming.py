@@ -377,6 +377,44 @@ def test_spellbook_rejects_level_invalid_template(tmp_path):
     assert response.status_code == 400
 
 
+def test_spellbook_can_update_or_save_loaded_template_as_new(tmp_path):
+    app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "copy-book.db"),
+                      "SECRET_KEY": "test", "AUTH_DISABLED": True})
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["member_id"] = 1
+        session["is_editor"] = True
+    saved = client.post("/blue-mage-tools/templates", data={
+        "name": "Original", "blue_level": "75", "spells": ["Head Butt"],
+    })
+    template_id = int(saved.location.rsplit("=", 1)[1])
+    loaded = client.get(saved.location)
+    assert b"Update Named Spell Book" in loaded.data
+    assert b"Save as New" in loaded.data
+    assert b'blue_spellbook.js?v=23' in loaded.data
+
+    updated = client.post("/blue-mage-tools/templates", data={
+        "template_id": str(template_id), "save_mode": "update",
+        "name": "Updated", "blue_level": "75", "spells": ["Cocoon"],
+    })
+    assert int(updated.location.rsplit("=", 1)[1]) == template_id
+    copied = client.post("/blue-mage-tools/templates", data={
+        "template_id": str(template_id), "save_mode": "new",
+        "name": "Updated Copy", "blue_level": "75", "spells": ["Cocoon"],
+    })
+    copy_id = int(copied.location.rsplit("=", 1)[1])
+    assert copy_id != template_id
+    database = sqlite3.connect(app.config["DATABASE"])
+    rows = database.execute(
+        "SELECT id,name,spells_json FROM blue_spell_templates ORDER BY id"
+    ).fetchall()
+    database.close()
+    assert rows == [
+        (template_id, "Updated", '["Cocoon"]'),
+        (copy_id, "Updated Copy", '["Cocoon"]'),
+    ]
+
+
 def test_spellbook_template_can_be_deleted_without_page_redirect(tmp_path):
     app = create_app({"TESTING": True, "DATABASE": str(tmp_path / "delete-book.db"),
                       "SECRET_KEY": "test", "AUTH_DISABLED": True})

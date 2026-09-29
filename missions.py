@@ -5808,13 +5808,18 @@ def create_app(test_config=None):
         if len(spells) > slot_limit or sum(spell_costs[spell] for spell in spells) > point_limit:
             abort(400, description="The template exceeds the spell-slot or Blue Magic point limit.")
         template_id = request.form.get("template_id", "")
-        if template_id.isdigit():
+        save_mode = request.form.get("save_mode", "update" if template_id.isdigit() else "new")
+        if save_mode not in {"new", "update"}:
+            abort(400, description="Choose whether to update this spell book or save a new one.")
+        if save_mode == "update" and template_id.isdigit():
             existing = db.execute(
                 "SELECT id FROM blue_spell_templates WHERE id=? AND owner_member_id=?",
                 (int(template_id), member["id"]),
             ).fetchone()
         else:
             existing = None
+        if save_mode == "update" and not existing:
+            abort(404, description="The spell book to update could not be found.")
         values = (name, blue_level, json.dumps(spells), 0)
         if existing:
             db.execute(
@@ -5832,7 +5837,8 @@ def create_app(test_config=None):
             )
             saved_id = cursor.lastrowid
         db.commit()
-        flash(f"Saved Blue Mage template {name}.", "success")
+        action = "Updated" if existing else "Saved new"
+        flash(f"{action} Blue Mage template {name}.", "success")
         return redirect(url_for("spell_farming", view="spellbook", template=saved_id))
 
     @app.post("/blue-mage-tools/templates/<int:template_id>/delete")
