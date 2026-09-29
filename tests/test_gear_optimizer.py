@@ -280,7 +280,12 @@ def test_gear_optimizer_uses_catalog_without_loading_character_equipment(monkeyp
     assert page_text.index('value="Attack"') < page_text.index('value="Avatar Perpetuation Cost"')
     assert b"gear_select.css?v=1" in page.data
     assert b'id="gear-conditional-effects"' in page.data
-    assert b"gear_optimizer.js?v=25" in page.data
+    assert b'id="gear-stat-priority"' in page.data
+    assert b"Primary, then fill gaps" in page.data
+    assert b"Prioritize max (weighted total)" in page.data
+    assert b'id="gear-primary-weight"' in page.data
+    assert b'id="gear-secondary-weight"' in page.data
+    assert b"gear_optimizer.js?v=27" in page.data
     assert b"Gear value" in page.data
     assert b'id="gear-liquid-value"' in page.data
     assert b"Owned Gear" not in page.data
@@ -300,6 +305,9 @@ def test_gear_optimizer_uses_catalog_without_loading_character_equipment(monkeyp
     assert b'item.two_handed) equipmentSet.sub = null' in optimizer_script
     assert b'id="gear-active-search"' in page.data
     assert b'activeSearchControl.addEventListener("input", renderActiveItems)' in optimizer_script
+    assert b'const candidatesForSlot = (items, slot)' in optimizer_script
+    assert b'statPriorityControl.value === "max"' in optimizer_script
+    assert b'total + value * weights[index]' in optimizer_script
 
 
 def test_owned_gear_is_saved_per_character(monkeypatch, tmp_path):

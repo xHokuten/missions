@@ -10,6 +10,9 @@
   const levelControl = document.querySelector("#gear-level");
   const primaryControl = document.querySelector("#gear-primary-stat");
   const secondaryControl = document.querySelector("#gear-secondary-stat");
+  const statPriorityControl = document.querySelector("#gear-stat-priority");
+  const primaryWeightControl = document.querySelector("#gear-primary-weight");
+  const secondaryWeightControl = document.querySelector("#gear-secondary-weight");
   const negativeControl = document.querySelector("#gear-negative");
   const conditionalEffectsControl = document.querySelector("#gear-conditional-effects");
   const raceControl = document.querySelector("#gear-race");
@@ -181,11 +184,32 @@
     return stats;
   };
   const selectedStats = () => [primaryControl.value, secondaryControl.value].filter(Boolean);
+  const statDirection = () => negativeControl.checked ? -1 : 1;
+  const statValue = (item, stat) => Number(itemStats(item)[stat] || 0);
+  const matchesSelectedStat = item => selectedStats().some(stat => statValue(item, stat) * statDirection() > 0);
   const score = item => {
-    const stats = itemStats(item);
-    const direction = negativeControl.checked ? -1 : 1;
-    return (Number(stats[primaryControl.value] || 0) * 2 + Number(stats[secondaryControl.value] || 0)) * direction;
+    if (!item) return 0;
+    const values = selectedStats().map(stat => statValue(item, stat) * statDirection());
+    if (statPriorityControl.value === "max") {
+      const weights = [primaryWeightControl, secondaryWeightControl]
+        .map(control => Math.max(0.1, Number(control.value) || 1));
+      return values.reduce((total, value, index) => total + value * weights[index], 0);
+    }
+    const primary = values[0] || 0;
+    return primary > 0 ? primary : Math.max(0, values[1] || 0);
   };
+
+  const candidatesForSlot = (items, slot) => {
+    const slotted = items.filter(item => applicableSlots(item).includes(slot));
+    if (statPriorityControl.value === "max" || !secondaryControl.value) return slotted;
+    const primaryMatches = slotted.filter(item => statValue(item, primaryControl.value) * statDirection() > 0);
+    return primaryMatches.length ? primaryMatches : slotted.filter(item => statValue(item, secondaryControl.value) * statDirection() > 0);
+  };
+
+  const statValueLabel = item => selectedStats().map(stat => {
+    const value = statValue(item, stat);
+    return `${stat} ${value >= 0 ? "+" : ""}${value}`;
+  }).join(" / ");
 
   const applicableSlots = item => {
     if (Array.isArray(item.slots)) {
@@ -297,19 +321,15 @@
   };
 
   const matchingItemsForSlot = slot => {
-    const stat = primaryControl.value;
-    return catalog.filter(item => {
-      const value = Number(itemStats(item)[stat] || 0);
-      return isCompatible(item) && applicableSlots(item).includes(slot) &&
-        (negativeControl.checked ? value < 0 : value > 0);
-    }).sort((a, b) => score(b) - score(a) || a.level - b.level || a.name.localeCompare(b.name));
+    const compatible = catalog.filter(item => isCompatible(item) && matchesSelectedStat(item));
+    return candidatesForSlot(compatible, slot)
+      .sort((a, b) => score(b) - score(a) || a.level - b.level || a.name.localeCompare(b.name));
   };
 
   const renderActiveItems = () => {
     const allItems = matchingItemsForSlot(activeSlot);
     const query = activeSearchControl.value.trim().toLocaleLowerCase();
     const items = allItems.filter(item => !query || item.name.toLocaleLowerCase().includes(query));
-    const stat = primaryControl.value;
     document.querySelector("#gear-active-slot").textContent = labels[activeSlot];
     document.querySelector("#gear-active-count").textContent = query ? `${items.length} of ${allItems.length} items` : `${items.length} items`;
     const nodes = items.map(item => {
@@ -324,8 +344,7 @@
       const badge = rarityBadge(item);
       if (badge) copy.append(badge);
       copy.append(element("small", "", `Lv. ${item.level}`));
-      const value = Number(itemStats(item)[stat] || 0);
-      row.append(icon, copy, element("b", "", `${value >= 0 ? "+" : ""}${value}`));
+      row.append(icon, copy, element("b", "", statValueLabel(item)));
       const ahLink = auctionHouseLink(item);
       if (ahLink) row.append(ahLink);
       row.append(wikiStar(item));
@@ -369,12 +388,9 @@
   };
 
   const renderCatalog = () => {
-    const stat = primaryControl.value;
-    document.querySelector("#catalog-stat-name").textContent = stat;
-    const matches = availableCatalog().filter(item => {
-      const value = Number(itemStats(item)[stat] || 0);
-      return isCompatible(item) && (negativeControl.checked ? value < 0 : value > 0);
-    });
+    const statsLabel = selectedStats().join(" / ");
+    document.querySelector("#catalog-stat-name").textContent = statsLabel;
+    const matches = availableCatalog().filter(item => isCompatible(item) && matchesSelectedStat(item));
     const groups = new Map();
     matches.forEach(item => (item.slots || []).forEach(slot => {
       if (!groups.has(slot)) groups.set(slot, []);
@@ -382,9 +398,8 @@
     }));
     const orderedSlots = ["Main", "Sub", "Ranged", "Ammo", "Head", "Body", "Hands", "Legs", "Feet", "Neck", "Waist", "Ear", "Ring", "Back"];
     const sections = orderedSlots.filter(slot => groups.has(slot)).map(slot => {
-      const direction = negativeControl.checked ? -1 : 1;
       const items = groups.get(slot).sort((a, b) =>
-        (Number(itemStats(b)[stat] || 0) - Number(itemStats(a)[stat] || 0)) * direction ||
+        score(b) - score(a) ||
         a.level - b.level || a.name.localeCompare(b.name)
       );
       const section = element("section", "gear-catalog-slot");
@@ -393,16 +408,14 @@
       const list = element("div", "gear-catalog-items");
       list.replaceChildren(...items.map(item => {
         const comparison = currentComparison(item);
-        const currentValue = comparison && comparison.current ? Number(itemStats(comparison.current)[stat] || 0) : 0;
-        const value = Number(itemStats(item)[stat] || 0);
-        const delta = value - currentValue;
+        const delta = comparison ? comparison.delta : score(item);
         const row = element("article", "gear-catalog-item");
-        const improvement = delta * direction;
+        const improvement = delta;
         row.append(
           element("h4", "", item.name),
-          element("strong", "gear-catalog-value", `${value >= 0 ? "+" : ""}${value}`),
+          element("strong", "gear-catalog-value", statValueLabel(item)),
           element("strong", `gear-catalog-delta${improvement < 0 ? " negative" : ""}`, `${delta >= 0 ? "+" : ""}${delta}`),
-          element("p", "", `Lv. ${item.level} | ${item.description || stat}`),
+          element("p", "", `Lv. ${item.level} | ${item.description || statsLabel}`),
         );
         const ahLink = auctionHouseLink(item);
         if (ahLink) row.append(ahLink);
@@ -429,22 +442,18 @@
       return section;
     });
     document.querySelector("#gear-catalog-count").textContent = `${matches.length} compatible items`;
-    document.querySelector("#gear-catalog-results").replaceChildren(...(sections.length ? sections : [element("p", "gear-empty", `No compatible ${stat} equipment found.`)]));
+    document.querySelector("#gear-catalog-results").replaceChildren(...(sections.length ? sections : [element("p", "gear-empty", `No compatible ${statsLabel} equipment found.`)]));
   };
 
   const refresh = () => {
-    const stat = primaryControl.value;
-    const direction = negativeControl.checked ? -1 : 1;
-    const candidates = availableCatalog().filter(item => {
-      const value = Number(itemStats(item)[stat] || 0);
-      return isCompatible(item) && (negativeControl.checked ? value < 0 : value > 0);
-    }).sort((a, b) => (score(b) - score(a)) || a.level - b.level || a.name.localeCompare(b.name));
+    const candidates = availableCatalog().filter(item => isCompatible(item) && matchesSelectedStat(item));
     calculatedSet = {};
     const remaining = new Map(ownedCounts);
     slotOrder.forEach(slot => {
       const mainBlocksSub = slot === "sub" && calculatedSet.main && calculatedSet.main.two_handed;
-      const match = mainBlocksSub ? null : candidates.find(item =>
-        applicableSlots(item).includes(slot) &&
+      const slotCandidates = candidatesForSlot(candidates, slot)
+        .sort((a, b) => score(b) - score(a) || a.level - b.level || a.name.localeCompare(b.name));
+      const match = mainBlocksSub ? null : slotCandidates.find(item =>
         pairedDuplicateAllowed(item, slot, calculatedSet) &&
         (scopeControl.value !== "owned" || (remaining.get(Number(item.item_id)) || 0) > 0));
       calculatedSet[slot] = match || null;
@@ -467,7 +476,7 @@
     setInitialized = false;
     refresh();
   };
-  [jobControl, levelControl, raceControl, primaryControl, secondaryControl, negativeControl, conditionalEffectsControl, scopeControl]
+  [jobControl, levelControl, raceControl, primaryControl, secondaryControl, statPriorityControl, primaryWeightControl, secondaryWeightControl, negativeControl, conditionalEffectsControl, scopeControl]
     .forEach(control => control.addEventListener("change", rebuildFromFilters));
 
   document.querySelector("#gear-collapse-set").addEventListener("click", event => {
