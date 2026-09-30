@@ -124,6 +124,11 @@ def test_endgame_master_tab_requires_sign_in_and_renders_all_subtabs(tmp_path):
     assert b'data-dkp="3"' in alecy_row
     assert b'data-spent="0"' in alecy_row
     assert b'data-earned="3"' in alecy_row
+    assert alecy_row.index(b'member-name-cell') < alecy_row.index(b'member-dynamis-cell')
+    assert alecy_row.index(b'member-dynamis-cell') < alecy_row.index(b'member-dkp-cell')
+    assert alecy_row.index(b'member-dkp-cell') < alecy_row.index(b'member-spent-cell')
+    assert alecy_row.index(b'member-spent-cell') < alecy_row.index(b'member-earned-cell')
+    assert alecy_row.index(b'member-earned-cell') < alecy_row.index(b'member-last-event-cell')
     assert b"DKP balance" in response.data
     assert b"Total spent" in response.data
     assert b"Lifetime earned" in response.data

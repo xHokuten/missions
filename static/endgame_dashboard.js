@@ -193,7 +193,6 @@
   document.querySelectorAll("#endgame-roster-body tr").forEach(row => {
     const selection = dynamisSelections.get(row.dataset.name) || {main: "", secondary: ""};
     row.dataset.dynamis = `${selection.main} ${selection.secondary}`.toLowerCase();
-    row.children[0]?.insertAdjacentHTML("afterend", `<td><span class="job-badge main">${selection.main || "—"}</span> <span class="job-badge">${selection.secondary || "—"}</span></td>`);
   });
   const loot = window.ENDGAME_LOOT || [];
   const priorityItems = window.ENDGAME_PRIORITY_ITEMS || [];
@@ -208,9 +207,10 @@
   document.querySelectorAll("#endgame-roster-body tr").forEach(row => {
     const member = memberDetailsByName.get(row.dataset.name);
     if (!member) return;
-    const cells = row.children;
-    if (cells[3]) cells[3].innerHTML = `<button class="table-dkp-breakdown-trigger" type="button" data-dkp-member="${member.id}" data-dkp-kind="spent" aria-label="Show ${safeText(member.name)} total spent details">${Number(member.total_spent || 0)}</button>`;
-    if (cells[4]) cells[4].innerHTML = `<button class="table-dkp-breakdown-trigger" type="button" data-dkp-member="${member.id}" data-dkp-kind="earned" aria-label="Show ${safeText(member.name)} lifetime earned details">${Number(member.lifetime_earned || 0)}</button>`;
+    const spentCell = row.querySelector(".member-spent-cell");
+    const earnedCell = row.querySelector(".member-earned-cell");
+    if (spentCell) spentCell.innerHTML = `<button class="table-dkp-breakdown-trigger" type="button" data-dkp-member="${member.id}" data-dkp-kind="spent" aria-label="Show ${safeText(member.name)} total spent details">${Number(member.total_spent || 0)}</button>`;
+    if (earnedCell) earnedCell.innerHTML = `<button class="table-dkp-breakdown-trigger" type="button" data-dkp-member="${member.id}" data-dkp-kind="earned" aria-label="Show ${safeText(member.name)} lifetime earned details">${Number(member.lifetime_earned || 0)}</button>`;
   });
   const tableDkpPopover = document.createElement("div");
   tableDkpPopover.className = "table-dkp-breakdown-popover";
