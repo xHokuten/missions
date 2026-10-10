@@ -63,7 +63,7 @@ HORIZON_SPELL_OVERRIDES = {
     },
     "voracious trunk": {"set_points": 3},
     "winds of promyvion": {
-        "spell_level": 56, "set_points": 4,
+        "spell_level": 56, "set_points": 4, "trait_weight": 2,
     },
 }
 

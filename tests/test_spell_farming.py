@@ -103,6 +103,7 @@ def test_promyvion_vahzl_horizon_spells_are_kept_with_their_learning_targets():
     assert spells["Quadratic Continuum"]["monster"] == "Gorger"
     assert spells["Winds of Promyvion"]["spell_level"] == 56
     assert spells["Winds of Promyvion"]["set_points"] == 4
+    assert spells["Winds of Promyvion"]["trait_weight"] == 2
     assert spells["Winds of Promyvion"]["monster"] == "Thinker"
     assert spells["Winds of Promyvion"]["zone"] == "Promyvion - Vahzl"
 
