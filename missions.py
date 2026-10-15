@@ -267,7 +267,10 @@ LOGIN_CHARACTERS = (
     "Kaeru", "Firewater", "Anonym", "Ramenwarrior", "Kalindra", "Eunos",
     "Brewski", "Bodom", "Werx", "Palumbo", "Hikari", "Gravekeeper",
 )
-DISCORD_ADMIN_CHARACTERS = ("Imaven", "Sexualpotato", "Vlathgar", "Cartuja", "Ramenwarrior", "Chickenbanana")
+DISCORD_ADMIN_CHARACTERS = (
+    "Imaven", "Sexualpotato", "Vlathgar", "Cartuja", "Ramenwarrior",
+    "Chickenbanana", "Manapapa",
+)
 AVAILABILITY_MODES = {
     "now": "Today/Now — PM Me",
     "after": "Any Time After",
@@ -4489,8 +4492,7 @@ def create_app(test_config=None):
         start_at = parse_local_datetime(request.form.get("start_at", ""))
         if not name or len(name) > 100 or not start_at or start_at.minute % 15:
             abort(400, description="Enter an event name and choose a start time in a 15-minute interval.")
-        if start_at.replace(tzinfo=EASTERN_TIME) <= datetime.now(EASTERN_TIME):
-            abort(400, description="Choose an event date and time in the future.")
+        is_historical = start_at.replace(tzinfo=EASTERN_TIME) <= datetime.now(EASTERN_TIME)
         # Discord requires an end timestamp for external scheduled events.
         # Keep that implementation detail out of the form and use a standard window.
         end_at = start_at + timedelta(hours=3)
@@ -4500,7 +4502,10 @@ def create_app(test_config=None):
         channel_id = str(app.config.get("DISCORD_EVENT_CHANNEL_ID", "")).strip()
         event_bot_api_url = str(app.config.get("HOKUTEN_EVENT_BOT_API_URL", "")).strip()
         event_bot_api_token = str(app.config.get("HOKUTEN_EVENT_BOT_API_TOKEN", "")).strip()
-        if event_bot_api_url and event_bot_api_token:
+        # Discord does not accept scheduled events whose start time has passed.
+        # Historical entries are intentionally website-only so officers can
+        # backfill attendance, loot, and DKP without creating external noise.
+        if not is_historical and event_bot_api_url and event_bot_api_token:
             api_payload = {
                 "name": name,
                 "description": description,
@@ -4526,7 +4531,7 @@ def create_app(test_config=None):
                     raise ValueError("The event bot response did not include a message ID.")
             except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError):
                 flash("The website event was saved, but Hokuten Event Bot could not register it.", "error")
-        elif token:
+        elif not is_historical and token:
             payload = {
                 "name": name, "description": description or None,
                 "privacy_level": 2, "entity_type": 3, "channel_id": None,
@@ -4598,7 +4603,10 @@ def create_app(test_config=None):
             (creator["id"], "Event Calendar", "Event created", f"{name} / {start_at.isoformat(timespec='minutes')}"),
         )
         get_db().commit()
-        flash(f"Created {name}{' in Discord and on the website' if (discord_event_id or discord_message_id) else ' on the website'}.", "success")
+        if is_historical:
+            flash(f"Created historical event {name} on the website. You can now add attendance, loot, and DKP.", "success")
+        else:
+            flash(f"Created {name}{' in Discord and on the website' if (discord_event_id or discord_message_id) else ' on the website'}.", "success")
         return redirect(url_for("endgame_dashboard", _anchor="event-calendar"))
 
     @app.post("/endgame/events/<int:event_id>/dkp")

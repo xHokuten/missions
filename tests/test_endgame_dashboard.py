@@ -1458,7 +1458,8 @@ def test_event_creation_prefers_private_event_bot_api(monkeypatch, tmp_path):
     database.close()
 
 
-def test_event_creation_rejects_past_time_before_calling_discord(monkeypatch, tmp_path):
+def test_event_creation_saves_past_time_without_calling_discord(monkeypatch, tmp_path):
+    import sqlite3
     import missions
 
     app = make_app(tmp_path)
@@ -1476,8 +1477,33 @@ def test_event_creation_rejects_past_time_before_calling_discord(monkeypatch, tm
         "csrf_token": "token", "name": "Past Event",
         "start_at": "2020-01-01T20:00", "location": "Hokuten Knights",
     })
-    assert response.status_code == 400
-    assert b"Choose an event date and time in the future" in response.data
+    assert response.status_code == 302
+    database = sqlite3.connect(app.config["DATABASE"])
+    historical = database.execute(
+        "SELECT start_at,discord_event_id,discord_message_id FROM guild_events WHERE name='Past Event'"
+    ).fetchone()
+    database.close()
+    assert historical == ("2020-01-01T20:00", "", "")
+
+
+def test_manapapa_is_a_designated_event_officer(tmp_path):
+    import sqlite3
+
+    app = make_app(tmp_path)
+    database = sqlite3.connect(app.config["DATABASE"])
+    member_id = database.execute(
+        "INSERT INTO members(name,discord_user_id,discord_admin) VALUES('Manapapa','discord-manapapa',1)"
+    ).lastrowid
+    database.commit()
+    database.close()
+
+    client = app.test_client()
+    sign_in(client, member_id=member_id, admin=True)
+    page = client.get("/endgame")
+    assert page.status_code == 200
+    assert b"+ Create Guild Event" in page.data
+
+
 def test_sky_auction_includes_complete_seiryu_pool(tmp_path):
     app = make_app(tmp_path)
     client = app.test_client()
