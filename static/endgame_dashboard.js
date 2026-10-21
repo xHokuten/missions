@@ -1717,10 +1717,13 @@
       const manualLootForm = window.ENDGAME_IS_ADMIN ? `<form method="post" action="/endgame/loot" class="event-add-loot persistent-event-add"><input type="hidden" name="csrf_token" value="${csrf}"><input type="hidden" name="event_id" value="${selected.id}"><input type="hidden" name="classification" value="Major Loot"><h4>Add Loot Drop</h4><select name="item" required>${lootOptions}</select><select name="member_id" required><option value="">Recipient</option>${allMembers.map(member => `<option value="${member.id}">${safeText(member.name)}</option>`).join("")}</select><select name="job" required><option value="">Job</option>${jobs.map(job => `<option>${job}</option>`).join("")}</select><select name="distribution"><option>P1</option><option>P2</option><option>P3</option><option selected>Freelot</option></select><input type="number" name="dkp_cost" min="0" max="999" step="1" value="0" aria-label="DKP spent"><button class="button primary" type="submit">Add Loot Drop</button></form>` : "";
       dialogEyebrow.textContent = `${selected.start_at.slice(0, 10)} / Endgame event`;
       dialogTitle.textContent = `${selected.name} / Loot`;
-      dialogContent.innerHTML = `<section class="event-detail-column event-loot-only"><header><h3>Event Loot</h3><span>${awards.length} awards</span></header><div class="event-detail-scroll">${lootPanel}</div>${manualLootForm}</section>`;
+      const attendanceAction = window.ENDGAME_IS_ADMIN
+        ? `<button class="button edit-attendance-button" type="button" data-edit-attendance="${selected.id}">Edit Attendance</button>`
+        : "";
+      dialogContent.innerHTML = `<section class="event-detail-column event-loot-only"><header><div><h3>Event Loot</h3><span>${awards.length} awards</span></div>${attendanceAction}</header><div class="event-detail-scroll">${lootPanel}</div>${manualLootForm}</section>`;
       dialogContent.insertAdjacentHTML("beforeend", auctionArchive);
       dialog.classList.add("event-detail-dialog");
-      dialog.showModal();
+      if (!dialog.open) dialog.showModal();
       return;
     }
     if (attendanceEditButton && window.ENDGAME_IS_ADMIN) {
@@ -1733,7 +1736,7 @@
       dialogTitle.textContent = `${selected.name} / Attendance`;
       dialogContent.innerHTML = `<form method="post" action="/endgame/events/${selected.id}/attendance" class="event-attendance-editor"><input type="hidden" name="csrf_token" value="${csrf}"><div class="event-attendance-checks">${allMembers.map(member => `<label><input type="checkbox" name="member_ids" value="${member.id}" ${attendeeIds.has(Number(member.id)) ? "checked" : ""}><span>${safeText(member.name)}</span></label>`).join("")}</div><div class="attendance-editor-actions"><button class="button primary" type="submit">Save Attendance</button><button class="button edit-attendance-button" type="button" data-cancel-attendance>Cancel</button></div></form>`;
       dialogContent.querySelector("[data-cancel-attendance]").addEventListener("click", () => dialog.close());
-      dialog.showModal();
+      if (!dialog.open) dialog.showModal();
       return;
     }
     if (eventButton) { renderEventDetail(eventButton); return; }
